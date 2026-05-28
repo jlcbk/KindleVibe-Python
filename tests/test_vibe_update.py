@@ -1,5 +1,7 @@
 import sys
 import subprocess
+import json
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -74,6 +76,26 @@ class VibeUpdateTests(unittest.TestCase):
 
         self.assertEqual(payload["project"], "显式项目")
         self.assertEqual(payload["branch"], "feature/status")
+
+    def test_payload_file_is_loaded_and_cli_fields_override(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload_file = Path(tmpdir) / "payload.json"
+            payload_file.write_text(json.dumps({
+                "state": "文件状态",
+                "project": "文件项目",
+                "participants": ["@file"],
+            }, ensure_ascii=False), encoding="utf-8")
+
+            args = vibe_update.parse_args([
+                "--payload-file", str(payload_file),
+                "--state", "命令行状态",
+                "--participant", "@cli",
+            ])
+            payload = vibe_update.build_payload(args)
+
+        self.assertEqual(payload["state"], "命令行状态")
+        self.assertEqual(payload["project"], "文件项目")
+        self.assertEqual(payload["participants"], ["@cli"])
 
 
 if __name__ == "__main__":

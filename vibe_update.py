@@ -49,6 +49,10 @@ def parse_args(argv=None):
         action="store_true",
         help="输出完整 JSON，而不是中文摘要"
     )
+    parser.add_argument(
+        "--payload-file",
+        help="从 JSON 文件读取状态包，命令行参数会覆盖文件中的同名字段"
+    )
     parser.add_argument("--timeout", type=float, default=5.0, help="请求超时时间")
     parser.add_argument(
         "--from-git",
@@ -102,8 +106,25 @@ def detect_git_context(cwd: str) -> Dict[str, str]:
     return context
 
 
+def load_payload_file(path: Optional[str]) -> Dict[str, Any]:
+    if not path:
+        return {}
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except OSError as e:
+        raise ValueError(f"无法读取状态文件：{e}") from e
+    except json.JSONDecodeError as e:
+        raise ValueError(f"状态文件不是有效 JSON：{e}") from e
+
+    if not isinstance(payload, dict):
+        raise ValueError("状态文件顶层必须是 JSON 对象")
+    return payload
+
+
 def build_payload(args) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {}
+    payload: Dict[str, Any] = load_payload_file(args.payload_file)
     for field in (
         "state",
         "project",
@@ -172,7 +193,12 @@ def format_summary(status: Dict[str, Any]) -> str:
 
 def main(argv=None) -> int:
     args = parse_args(argv)
-    payload = build_payload(args)
+    try:
+        payload = build_payload(args)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+
     try:
         status = request_vibe(args.url, payload if payload else None, args.timeout)
     except RuntimeError as e:
