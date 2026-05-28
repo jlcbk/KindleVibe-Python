@@ -22,6 +22,36 @@ http://192.168.1.20:8080
 make run PYTHON=/path/to/python3
 ```
 
+## 后台运行
+
+Linux 用户可以参考 `examples/systemd/kindlevibe.service` 创建 user service。
+
+复制示例文件：
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp examples/systemd/kindlevibe.service ~/.config/systemd/user/kindlevibe.service
+```
+
+根据实际路径修改：
+
+- `WorkingDirectory`
+- `ExecStart` 中的 Python 路径、端口和监听地址
+
+启用并启动：
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now kindlevibe.service
+systemctl --user status kindlevibe.service
+```
+
+查看日志：
+
+```bash
+journalctl --user -u kindlevibe.service -f
+```
+
 ## Kindle 端使用
 
 1. 让 Kindle 和运行 KindleVibe 的电脑处在同一个局域网。
