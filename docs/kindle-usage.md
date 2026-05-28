@@ -157,6 +157,15 @@ python3 vibe_update.py --payload-file examples/payloads/blocked.json --blocker "
 python3 vibe_update.py --payload-file examples/payloads/done.json
 ```
 
+同一组模板也可以用内置 preset 名称调用：
+
+```bash
+python3 vibe_update.py --preset coding --from-git
+python3 vibe_update.py --preset review --event "本轮改动已交付。"
+python3 vibe_update.py --preset blocked --blocker "等待人工确认"
+python3 vibe_update.py --preset done
+```
+
 阻塞项解决后，可以显式清空阻塞列表：
 
 ```bash

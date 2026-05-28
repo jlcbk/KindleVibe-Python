@@ -14,6 +14,8 @@ from urllib import error, request
 
 
 DEFAULT_URL = "http://localhost:8080/api/vibe"
+PRESET_NAMES = ("coding", "review", "blocked", "done")
+PRESET_DIR = Path(__file__).resolve().parent / "examples" / "payloads"
 
 
 def default_url() -> str:
@@ -91,6 +93,11 @@ def parse_args(argv=None):
         "--payload-file",
         help="从 JSON 文件读取状态包，命令行参数会覆盖文件中的同名字段"
     )
+    parser.add_argument(
+        "--preset",
+        choices=PRESET_NAMES,
+        help="读取内置状态包：coding、review、blocked、done"
+    )
     parser.add_argument("--timeout", type=float, default=5.0, help="请求超时时间")
     parser.add_argument(
         "--from-git",
@@ -161,13 +168,24 @@ def load_payload_file(path: Optional[str]) -> Dict[str, Any]:
     return payload
 
 
+def load_preset_payload(name: Optional[str]) -> Dict[str, Any]:
+    if not name:
+        return {}
+    return load_payload_file(str(PRESET_DIR / f"{name}.json"))
+
+
 def build_payload(args) -> Dict[str, Any]:
+    if args.preset and args.payload_file:
+        raise ValueError("不能同时使用 --preset 和 --payload-file")
     if args.clear_blockers and args.blocker is not None:
         raise ValueError("不能同时使用 --blocker 和 --clear-blockers")
     if args.clear_participants and args.participant is not None:
         raise ValueError("不能同时使用 --participant 和 --clear-participants")
 
-    payload: Dict[str, Any] = load_payload_file(args.payload_file)
+    if args.preset:
+        payload: Dict[str, Any] = load_preset_payload(args.preset)
+    else:
+        payload = load_payload_file(args.payload_file)
     for field in (
         "state",
         "project",

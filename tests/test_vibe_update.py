@@ -97,6 +97,30 @@ class VibeUpdateTests(unittest.TestCase):
         self.assertEqual(payload["project"], "文件项目")
         self.assertEqual(payload["participants"], ["@cli"])
 
+    def test_preset_payload_is_loaded_and_cli_fields_override(self):
+        args = vibe_update.parse_args([
+            "--preset", "coding",
+            "--state", "自定义状态",
+            "--from-git",
+        ])
+
+        with patch("vibe_update.detect_git_context", return_value={"project": "Demo", "branch": "main"}):
+            payload = vibe_update.build_payload(args)
+
+        self.assertEqual(payload["state"], "自定义状态")
+        self.assertEqual(payload["current_task"], "实现并验证一个小功能点")
+        self.assertEqual(payload["project"], "Demo")
+        self.assertEqual(payload["branch"], "main")
+
+    def test_preset_conflicts_with_payload_file(self):
+        args = vibe_update.parse_args([
+            "--preset", "coding",
+            "--payload-file", "status.json",
+        ])
+
+        with self.assertRaisesRegex(ValueError, "--preset"):
+            vibe_update.build_payload(args)
+
     def test_clear_flags_build_empty_lists(self):
         args = vibe_update.parse_args([
             "--clear-blockers",

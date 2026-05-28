@@ -171,6 +171,15 @@ python3 vibe_update.py --payload-file examples/payloads/blocked.json --blocker "
 python3 vibe_update.py --payload-file examples/payloads/done.json
 ```
 
+也可以直接用内置 preset 名称，不必记文件路径：
+
+```bash
+python3 vibe_update.py --preset coding --from-git
+python3 vibe_update.py --preset review --event "本轮改动已交付。"
+python3 vibe_update.py --preset blocked --blocker "等待人工确认"
+python3 vibe_update.py --preset done
+```
+
 清空已经解决的阻塞项，或清理过长的事件历史：
 
 ```bash
