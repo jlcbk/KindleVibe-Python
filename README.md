@@ -107,6 +107,20 @@ python3 vibe_update.py --json
 python3 vibe_update.py --health
 ```
 
+常用操作也可以通过 Makefile 调用：
+
+```bash
+make status
+make heartbeat
+make health
+```
+
+如果系统里的 Python 命令不是 `python3`，可以覆盖 Makefile 变量：
+
+```bash
+make health PYTHON=/path/to/python3
+```
+
 只刷新心跳，不改变当前任务内容：
 
 ```bash
