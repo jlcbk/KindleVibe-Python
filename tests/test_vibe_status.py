@@ -122,6 +122,11 @@ class VibeStatusTests(unittest.TestCase):
         self.assertFalse(health["vibe"]["stale"])
         self.assertEqual(health["codex"]["source"], "session")
 
+    def test_token_comparison_requires_configured_token(self):
+        self.assertTrue(app.tokens_match("secret", "secret"))
+        self.assertFalse(app.tokens_match("secret", "wrong"))
+        self.assertFalse(app.tokens_match("", "secret"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -82,6 +82,9 @@ DEFAULT_CONFIG = {
     "vibe": {
         "stale_after_seconds": 900
     },
+    "security": {
+        "api_token": ""
+    },
     "display": {
         "show_credits": True,
         "show_plan_type": True,
@@ -140,6 +143,15 @@ config = load_config()
 # ============================================================================
 # Vibe Coding Status
 # ============================================================================
+
+def configured_api_token() -> str:
+    """Return the optional API write token."""
+    return str(config.get("security", {}).get("api_token", "")).strip()
+
+
+def tokens_match(expected: str, supplied: str) -> bool:
+    """Compare API tokens without accepting empty configured tokens."""
+    return bool(expected) and supplied == expected
 
 def now_display() -> str:
     """Return a local timestamp for Kindle display and API payloads."""
@@ -1594,6 +1606,25 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
+
+    def send_json(self, status_code: int, payload: Dict[str, Any]):
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_no_cache_headers()
+        self.end_headers()
+        self.wfile.write(json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8"))
+
+    def is_api_write_authorized(self, parsed_path) -> bool:
+        expected = configured_api_token()
+        if not expected:
+            return True
+
+        supplied = self.headers.get("X-KindleVibe-Token", "").strip()
+        if tokens_match(expected, supplied):
+            return True
+
+        query_token = parse_qs(parsed_path.query).get("token", [""])[0].strip()
+        return tokens_match(expected, query_token)
     
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -1735,27 +1766,19 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif path == "/api/vibe":
             content_length = int(self.headers.get("Content-Length", 0))
             raw_body = self.rfile.read(content_length).decode("utf-8")
+            if not self.is_api_write_authorized(parsed_path):
+                self.send_json(401, {"error": "未授权：缺少或错误的 API token"})
+                return
+
             try:
                 payload = json.loads(raw_body or "{}")
                 status = update_vibe_status(payload)
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_no_cache_headers()
-                self.end_headers()
-                self.wfile.write(json.dumps(status, indent=2, ensure_ascii=False).encode("utf-8"))
+                self.send_json(200, status)
             except (json.JSONDecodeError, ValueError) as e:
-                self.send_response(400)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_no_cache_headers()
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": f"请求格式错误：{str(e)}"}, ensure_ascii=False).encode("utf-8"))
+                self.send_json(400, {"error": f"请求格式错误：{str(e)}"})
             except Exception as e:
                 logger.exception("Error updating vibe status")
-                self.send_response(500)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_no_cache_headers()
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": f"保存状态失败：{str(e)}"}, ensure_ascii=False).encode("utf-8"))
+                self.send_json(500, {"error": f"保存状态失败：{str(e)}"})
         
         else:
             self.send_response(404)

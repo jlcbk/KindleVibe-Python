@@ -15,6 +15,9 @@
   "vibe": {
     "stale_after_seconds": 900
   },
+  "security": {
+    "api_token": ""
+  },
   "display": {
     "show_credits": false,
     "show_plan_type": true,

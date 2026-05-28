@@ -121,6 +121,13 @@ export KINDLEVIBE_URL=http://192.168.1.20:8080/api/vibe
 python3 vibe_update.py --heartbeat
 ```
 
+如果配置了写入 token：
+
+```bash
+export KINDLEVIBE_TOKEN=your-token
+python3 vibe_update.py --heartbeat
+```
+
 常用 Makefile 命令：
 
 ```bash
@@ -196,4 +203,19 @@ Codex 用量依赖本机 Codex CLI 或本地会话文件。如果只想使用 vi
 
 ```bash
 python3 vibe_update.py --url http://127.0.0.1:8080/api/vibe --health
+```
+
+### 写入状态返回 401
+
+如果 `config.json` 设置了 `security.api_token`，CLI 必须提供相同 token：
+
+```bash
+python3 vibe_update.py --token your-token --heartbeat
+```
+
+也可以通过环境变量提供：
+
+```bash
+export KINDLEVIBE_TOKEN=your-token
+python3 vibe_update.py --heartbeat
 ```

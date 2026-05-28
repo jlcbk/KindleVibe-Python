@@ -20,6 +20,10 @@ def default_url() -> str:
     return os.environ.get("KINDLEVIBE_URL", DEFAULT_URL)
 
 
+def default_token() -> str:
+    return os.environ.get("KINDLEVIBE_TOKEN", "")
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="读取或更新 KindleVibe 的 vibe coding 状态"
@@ -28,6 +32,11 @@ def parse_args(argv=None):
         "--url",
         default=default_url(),
         help="KindleVibe API 地址；默认读取 KINDLEVIBE_URL，未设置时使用本机 8080"
+    )
+    parser.add_argument(
+        "--token",
+        default=default_token(),
+        help="可选 API 写入 token；默认读取 KINDLEVIBE_TOKEN"
     )
     parser.add_argument("--state", help="当前状态，例如：编码中、等待评审、被阻塞")
     parser.add_argument("--project", help="当前项目")
@@ -165,7 +174,12 @@ def build_payload(args) -> Dict[str, Any]:
     return payload
 
 
-def request_vibe(url: str, payload: Optional[Dict[str, Any]], timeout: float) -> Dict[str, Any]:
+def request_vibe(
+    url: str,
+    payload: Optional[Dict[str, Any]],
+    timeout: float,
+    token: str = "",
+) -> Dict[str, Any]:
     data = None
     headers = {}
     method = "GET"
@@ -173,6 +187,8 @@ def request_vibe(url: str, payload: Optional[Dict[str, Any]], timeout: float) ->
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         headers["Content-Type"] = "application/json; charset=utf-8"
         method = "POST"
+    if token:
+        headers["X-KindleVibe-Token"] = token
 
     req = request.Request(url, data=data, headers=headers, method=method)
     try:
@@ -236,7 +252,7 @@ def main(argv=None) -> int:
     args = parse_args(argv)
     if args.health:
         try:
-            health = request_vibe(derive_health_url(args.url), None, args.timeout)
+            health = request_vibe(derive_health_url(args.url), None, args.timeout, args.token)
         except RuntimeError as e:
             print(str(e), file=sys.stderr)
             return 1
@@ -254,7 +270,7 @@ def main(argv=None) -> int:
         return 2
 
     try:
-        status = request_vibe(args.url, payload if payload else None, args.timeout)
+        status = request_vibe(args.url, payload if payload else None, args.timeout, args.token)
     except RuntimeError as e:
         print(str(e), file=sys.stderr)
         return 1

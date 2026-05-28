@@ -91,6 +91,13 @@ export KINDLEVIBE_URL=http://192.168.1.20:8080/api/vibe
 python3 vibe_update.py --heartbeat
 ```
 
+如果在 `config.json` 中配置了 `security.api_token`，写入状态时需要提供同一个 token：
+
+```bash
+export KINDLEVIBE_TOKEN=your-token
+python3 vibe_update.py --heartbeat
+```
+
 只读取并输出中文摘要：
 
 ```bash
@@ -184,6 +191,9 @@ python3 vibe_update.py --payload-file vibe_status.example.json --state 等待评
   },
   "vibe": {
     "stale_after_seconds": 900
+  },
+  "security": {
+    "api_token": ""
   },
   "display": {
     "show_vibe_board": true,
