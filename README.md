@@ -220,6 +220,15 @@ python3 vibe_update.py --payload-file vibe_status.example.json --state 等待评
 
 日志写入 `logs/kindlevibe.log`。如果 Codex 用量没有更新，先查看日志，再确认 Codex CLI 是否可用。
 
+## 开发验证
+
+本仓库的 GitHub Actions 会在 push 和 pull request 上运行：
+
+```bash
+python -m py_compile app.py vibe_update.py
+python -m unittest discover -s tests
+```
+
 ## 许可证
 
 WTFPL（与原 KindleVibe 保持一致）。
