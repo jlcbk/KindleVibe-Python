@@ -41,6 +41,8 @@ http://<你的局域网 IP>:8080
 
 更完整的 Kindle 使用、CLI 自动化和排障说明见 [docs/kindle-usage.md](docs/kindle-usage.md)。
 
+页面、纯文本端点和 JSON API 的详细说明见 [docs/api.md](docs/api.md)。
+
 局域网部署和写入 token 的安全边界见 [SECURITY.md](SECURITY.md)。
 
 主要功能变更见 [CHANGELOG.md](CHANGELOG.md)。
