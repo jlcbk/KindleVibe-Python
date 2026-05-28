@@ -24,7 +24,7 @@
 - 主页面、设置页、纯文本页和 API 统一 no-cache 响应头。
 - Makefile 快捷命令：`make status`、`make heartbeat`、`make health`、`make presets`、`make clear-blockers`、`make clear-events`、`make preset-coding`、`make preset-review`、`make preset-blocked`、`make preset-done`、`make ci`。
 - GitHub Actions CI，自动运行 py_compile 和 unittest。
-- 中文文档导航、使用指南、自动化接入示例、API 参考、安全说明、systemd user service 示例、macOS launchd 示例。
+- 中文文档导航、架构说明、使用指南、自动化接入示例、API 参考、安全说明、systemd user service 示例、macOS launchd 示例。
 - 中文贡献指南，固定本地开发、验证、兼容性和 PR 交接要求。
 
 ### 变更

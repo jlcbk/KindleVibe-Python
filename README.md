@@ -43,6 +43,8 @@ http://<你的局域网 IP>:8080
 
 所有中文文档入口见 [docs/index.md](docs/index.md)。
 
+项目结构和扩展边界见 [docs/architecture.md](docs/architecture.md)。
+
 脚本和 agent 接入配方见 [docs/automation-recipes.md](docs/automation-recipes.md)。
 
 页面、纯文本端点和 JSON API 的详细说明见 [docs/api.md](docs/api.md)。
