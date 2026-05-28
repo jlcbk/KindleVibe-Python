@@ -47,6 +47,8 @@ http://<你的局域网 IP>:8080
 
 发布、部署和排障检查清单见 [docs/maintenance-checklist.md](docs/maintenance-checklist.md)。
 
+后续可迭代方向见 [docs/roadmap.md](docs/roadmap.md)。
+
 脚本和 agent 接入配方见 [docs/automation-recipes.md](docs/automation-recipes.md)。
 
 页面、纯文本端点和 JSON API 的详细说明见 [docs/api.md](docs/api.md)。

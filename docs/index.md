@@ -24,6 +24,7 @@
 | --- | --- |
 | [架构说明](architecture.md) | 理解服务端、CLI、状态文件、preset、测试之间的关系。 |
 | [维护检查清单](maintenance-checklist.md) | 发布前、部署前、排障和新增端点/preset 时的检查项。 |
+| [路线图](roadmap.md) | 记录后续可迭代方向和当前不优先做的事情。 |
 | [贡献指南](../CONTRIBUTING.md) | 本地开发、兼容性原则、PR 检查清单。 |
 | [变更记录](../CHANGELOG.md) | 查看当前功能集合和验证入口。 |
 | [README](../README.md) | 项目入口、快速开始、主要命令。 |
