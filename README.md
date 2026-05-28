@@ -39,6 +39,8 @@ python3 app.py --host 0.0.0.0 --port 9090
 http://<你的局域网 IP>:8080
 ```
 
+更完整的 Kindle 使用、CLI 自动化和排障说明见 [docs/kindle-usage.md](docs/kindle-usage.md)。
+
 ## 更新 Vibe Coding 状态
 
 看板状态保存在本地 `vibe_status.json`，该文件属于运行时状态，不提交到 Git。可以参考 `vibe_status.example.json` 的结构。
