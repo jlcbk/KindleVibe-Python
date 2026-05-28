@@ -19,6 +19,7 @@
 - Makefile 快捷命令：`make status`、`make heartbeat`、`make health`、`make ci`。
 - GitHub Actions CI，自动运行 py_compile 和 unittest。
 - 中文使用指南、安全说明、systemd user service 示例、macOS launchd 示例。
+- 中文贡献指南，固定本地开发、验证、兼容性和 PR 交接要求。
 
 ### 变更
 
