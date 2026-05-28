@@ -1,68 +1,134 @@
 # KindleVibe-Python
 
-A Kindle-friendly dashboard for monitoring Codex usage, written in Python.
+KindleVibe-Python 是一个面向 Kindle 浏览器的常亮状态面板，用来显示 vibe coding 过程中的关键信息：当前目标、项目/分支、正在处理的任务、下一步、阻塞项、最近事件，以及 Codex 用量。
 
-## Features
+这个版本只依赖 Python 标准库，适合在本机或局域网内运行，然后用 Kindle 打开页面作为低功耗状态屏。
 
-- **Kindle optimized**: High-contrast, large typography, portrait-friendly layout
-- **Real-time data**: Fetches usage from Codex CLI via JSON-RPC (falls back to session files)
-- **Auto-refresh**: Page refreshes every 5 minutes (configurable)
-- **Web-based settings**: Configure the app directly from the browser
-- **Logging**: Detailed logs for debugging
-- **Simple setup**: No Go required, just Python 3
+## 功能
 
-## Prerequisites
+- **Kindle 友好**：黑白高对比、大字号、低动态效果，适合电子墨水屏。
+- **Vibe Coding 看板**：展示当前目标、任务、下一步、协作者、阻塞项和最近事件。
+- **状态写入 API**：任意 agent、脚本或自动化流程都可以通过 `POST /api/vibe` 更新看板。
+- **Codex 用量监控**：优先通过 Codex CLI RPC 读取用量，失败后回退到本地会话文件。
+- **自动刷新**：Kindle 页面按配置周期自动刷新，不依赖复杂前端框架。
+- **浏览器设置页**：可以在 `/settings` 中调整端口、刷新间隔、Codex 来源和显示内容。
 
-- Python 3.7 or later
-- Codex CLI installed and authenticated (`npm install -g @openai/codex`)
+## 环境要求
 
-## Quick Start
+- Python 3.7 或更高版本。
+- 如需 Codex 用量：本机已安装并登录 Codex CLI。
 
-1. **Clone or download this project**
+## 快速开始
 
-2. **Run the server**
+```bash
+python3 app.py
+```
 
-   ```bash
-   python3 app.py
-   ```
+指定端口和监听地址：
 
-   Or with custom port:
+```bash
+python3 app.py --host 0.0.0.0 --port 9090
+```
 
-   ```bash
-   python3 app.py --port 9090
-   ```
+启动后，在 Kindle 浏览器打开：
 
-3. **Open in Kindle browser**
+```text
+http://<你的局域网 IP>:8080
+```
 
-   Visit: `http://<your-local-ip>:8080`
+## 更新 Vibe Coding 状态
 
-## Configuration
+看板状态保存在本地 `vibe_status.json`，该文件属于运行时状态，不提交到 Git。可以参考 `vibe_status.example.json` 的结构。
 
-### Config File
+最小更新示例：
 
-Configuration is stored in `config.json` and can be edited:
-- Manually with a text editor
-- Through the web interface (click "Settings" button)
+```bash
+curl -X POST http://localhost:8080/api/vibe \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "state": "编码中",
+    "project": "KindleVibe-Python",
+    "branch": "feature/vibe-board",
+    "objective": "把 Kindle 变成 vibe coding 常亮状态屏",
+    "current_task": "实现通用状态写入接口",
+    "next_action": "运行测试并交给 GitHub 协作 agent 发 PR",
+    "participants": ["@scnet_brain", "@opencode"],
+    "blockers": [],
+    "event": "完成第一版状态面板。"
+  }'
+```
 
-### Config Options
+读取当前状态：
+
+```bash
+curl http://localhost:8080/api/vibe
+```
+
+也可以使用随项目提供的标准库 CLI 工具，避免每次手写 curl：
+
+```bash
+python3 vibe_update.py \
+  --state 编码中 \
+  --project KindleVibe-Python \
+  --branch feature/vibe-board \
+  --objective "把 Kindle 变成 vibe coding 常亮状态屏" \
+  --current-task "补充 CLI 状态写入工具" \
+  --next-action "运行测试并交给 GitHub 协作 agent 发 PR" \
+  --participant @scnet_brain \
+  --participant @opencode \
+  --event "CLI 已经能写入状态。"
+```
+
+只读取并输出中文摘要：
+
+```bash
+python3 vibe_update.py
+```
+
+输出完整 JSON：
+
+```bash
+python3 vibe_update.py --json
+```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `title` | 看板标题 |
+| `state` | 当前状态，例如 `编码中`、`等待评审`、`被阻塞` |
+| `project` | 当前项目 |
+| `branch` | 当前分支或工作区 |
+| `objective` | 当前大目标 |
+| `current_task` | 正在处理的具体任务 |
+| `next_action` | 下一步行动 |
+| `blockers` | 阻塞项列表 |
+| `participants` | 参与者列表 |
+| `event` | 追加一条最近事件 |
+| `events` | 覆盖最近事件列表 |
+
+## 配置
+
+`config.json` 中可以配置服务端口、刷新间隔、Codex 数据来源和显示选项。
 
 ```json
 {
   "server": {
-    "port": 8080,           // Server port
-    "host": "0.0.0.0"       // Server bind address
+    "port": 8080,
+    "host": "0.0.0.0"
   },
   "refresh": {
-    "interval_seconds": 300,      // Data refresh interval (30-3600)
-    "auto_refresh_page_ms": 300000  // Page auto-refresh (ms)
+    "interval_seconds": 300,
+    "auto_refresh_page_ms": 300000
   },
   "codex": {
-    "enabled": true,              // Enable Codex monitoring
-    "source": "auto",             // "auto", "cli", or "session"
-    "session_file_limit": 10      // Max session files to scan
+    "enabled": true,
+    "source": "auto",
+    "session_file_limit": 10
   },
   "display": {
-    "show_credits": true,
+    "show_vibe_board": true,
+    "show_credits": false,
     "show_plan_type": true,
     "show_data_source": true,
     "show_last_updated": true
@@ -70,49 +136,19 @@ Configuration is stored in `config.json` and can be edited:
 }
 ```
 
-## Web Interface
+## API
 
-### Dashboard (`/`)
-- Shows Codex usage (5h limit, weekly limit)
-- Displays account info (plan, credits, data source)
-- Settings button in top-right corner
+- `GET /`：Kindle 主看板。
+- `GET /settings`：设置页。
+- `GET /api/vibe`：读取 vibe coding 状态。
+- `POST /api/vibe`：更新 vibe coding 状态。
+- `GET /api/usage`：读取 Codex 用量。
+- `GET /api/config`：读取当前配置。
 
-### Settings (`/settings`)
-- Server settings (port, host)
-- Refresh settings (interval, page refresh)
-- Codex settings (enabled, data source, session limit)
-- Display settings (what to show/hide)
+## 运行日志
 
-### API Endpoints
-- `GET /api/usage` - JSON usage data
-- `GET /api/config` - JSON configuration
+日志写入 `logs/kindlevibe.log`。如果 Codex 用量没有更新，先查看日志，再确认 Codex CLI 是否可用。
 
-## Data Sources
+## 许可证
 
-1. **Codex CLI RPC** (preferred): Uses `codex app-server` for real-time data
-2. **Session files** (fallback): Reads from `~/.codex/sessions/` directory
-
-## Logging
-
-Logs are stored in `logs/kindlevibe.log` with detailed information for debugging.
-
-## Troubleshooting
-
-### "codex not found in PATH"
-
-Make sure Codex CLI is installed and in your PATH:
-
-```bash
-npm install -g @openai/codex
-codex --version
-```
-
-### Usage data not updating
-
-- Check `logs/kindlevibe.log` for errors
-- Ensure you have an active Codex subscription
-- Try changing data source to "session" in settings
-
-## License
-
-WTFPL (same as original KindleVibe)
+WTFPL（与原 KindleVibe 保持一致）。

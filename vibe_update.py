@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""
+把 vibe coding 状态写入 KindleVibe-Python 的小工具。
+"""
+
+import argparse
+import json
+import sys
+from typing import Any, Dict, Optional
+from urllib import error, request
+
+
+DEFAULT_URL = "http://localhost:8080/api/vibe"
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="读取或更新 KindleVibe 的 vibe coding 状态"
+    )
+    parser.add_argument("--url", default=DEFAULT_URL, help="KindleVibe API 地址")
+    parser.add_argument("--state", help="当前状态，例如：编码中、等待评审、被阻塞")
+    parser.add_argument("--project", help="当前项目")
+    parser.add_argument("--branch", help="当前分支或工作区")
+    parser.add_argument("--objective", help="当前大目标")
+    parser.add_argument("--current-task", dest="current_task", help="当前任务")
+    parser.add_argument("--next-action", dest="next_action", help="下一步行动")
+    parser.add_argument(
+        "--participant",
+        action="append",
+        default=None,
+        help="参与者，可重复传入"
+    )
+    parser.add_argument(
+        "--blocker",
+        action="append",
+        default=None,
+        help="阻塞项，可重复传入；不传表示不修改"
+    )
+    parser.add_argument("--event", help="追加一条最近事件")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="输出完整 JSON，而不是中文摘要"
+    )
+    parser.add_argument("--timeout", type=float, default=5.0, help="请求超时时间")
+    return parser.parse_args(argv)
+
+
+def clean_text(value: Optional[str]) -> str:
+    return value.strip() if value else ""
+
+
+def clean_list(values) -> list:
+    if values is None:
+        return []
+    return [item for item in (clean_text(value) for value in values) if item]
+
+
+def build_payload(args) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {}
+    for field in (
+        "state",
+        "project",
+        "branch",
+        "objective",
+        "current_task",
+        "next_action",
+        "event",
+    ):
+        value = clean_text(getattr(args, field, ""))
+        if value:
+            payload[field] = value
+
+    if args.participant is not None:
+        payload["participants"] = clean_list(args.participant)
+    if args.blocker is not None:
+        payload["blockers"] = clean_list(args.blocker)
+
+    return payload
+
+
+def request_vibe(url: str, payload: Optional[Dict[str, Any]], timeout: float) -> Dict[str, Any]:
+    data = None
+    headers = {}
+    method = "GET"
+    if payload:
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        headers["Content-Type"] = "application/json; charset=utf-8"
+        method = "POST"
+
+    req = request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with request.urlopen(req, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"服务返回 {e.code}：{body}") from e
+    except error.URLError as e:
+        raise RuntimeError(f"无法连接 KindleVibe：{e}") from e
+
+
+def format_summary(status: Dict[str, Any]) -> str:
+    blockers = status.get("blockers") or []
+    participants = status.get("participants") or []
+    events = status.get("events") or []
+    last_event = events[-1].get("text", "") if events and isinstance(events[-1], dict) else "暂无"
+
+    lines = [
+        f"状态：{status.get('state', '未知')}",
+        f"项目：{status.get('project', '未指定')} / 分支：{status.get('branch', '未指定')}",
+        f"目标：{status.get('objective', '未指定')}",
+        f"当前任务：{status.get('current_task', '未指定')}",
+        f"下一步：{status.get('next_action', '未指定')}",
+        f"参与者：{', '.join(participants) if participants else '未指定'}",
+        f"阻塞项：{', '.join(blockers) if blockers else '无'}",
+        f"最近事件：{last_event}",
+        f"更新时间：{status.get('updated_at', '未知')}",
+    ]
+    return "\n".join(lines)
+
+
+def main(argv=None) -> int:
+    args = parse_args(argv)
+    payload = build_payload(args)
+    try:
+        status = request_vibe(args.url, payload if payload else None, args.timeout)
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(status, indent=2, ensure_ascii=False))
+    else:
+        print(format_summary(status))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

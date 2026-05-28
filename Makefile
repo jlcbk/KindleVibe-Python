@@ -4,28 +4,28 @@
 PORT ?= 8080
 
 help:
-	@echo "KindleVibe-Python - Codex usage dashboard for Kindle"
+	@echo "KindleVibe-Python - Kindle 友好的 vibe coding 状态面板"
 	@echo ""
-	@echo "Usage:"
-	@echo "  make run          Start the server on port $(PORT)"
-	@echo "  make run PORT=9090 Start the server on port 9090"
-	@echo "  make stop         Stop the server"
-	@echo "  make test         Test Codex CLI connection"
+	@echo "用法："
+	@echo "  make run             在 $(PORT) 端口启动服务"
+	@echo "  make run PORT=9090   在 9090 端口启动服务"
+	@echo "  make stop            停止服务"
+	@echo "  make test            测试 Codex CLI 连接"
 	@echo ""
 
 run:
-	@echo "Starting KindleVibe-Python on port $(PORT)..."
+	@echo "正在 $(PORT) 端口启动 KindleVibe-Python..."
 	python3 app.py --port $(PORT)
 
 stop:
-	@echo "Stopping KindleVibe-Python..."
+	@echo "正在停止 KindleVibe-Python..."
 	@if lsof -ti tcp:$(PORT) >/dev/null 2>&1; then \
 		kill $$(lsof -ti tcp:$(PORT)); \
-		echo "Stopped."; \
+		echo "已停止。"; \
 	else \
-		echo "Not running."; \
+		echo "当前没有运行。"; \
 	fi
 
 test:
-	@echo "Testing Codex CLI connection..."
-	@codex /status 2>&1 || echo "Error: codex /status failed"
+	@echo "正在测试 Codex CLI 连接..."
+	@codex /status 2>&1 || echo "错误：codex /status 执行失败"

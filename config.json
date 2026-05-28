@@ -16,6 +16,7 @@
     "show_credits": false,
     "show_plan_type": true,
     "show_data_source": true,
-    "show_last_updated": true
+    "show_last_updated": true,
+    "show_vibe_board": true
   }
 }
