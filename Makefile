@@ -1,4 +1,4 @@
-.PHONY: run stop test ci status heartbeat health clear-blockers clear-participants clear-events preset-coding preset-review preset-blocked preset-done help
+.PHONY: run stop test ci status heartbeat health presets clear-blockers clear-participants clear-events preset-coding preset-review preset-blocked preset-done help
 
 # Default port
 PORT ?= 8080
@@ -21,6 +21,7 @@ help:
 	@echo "  make status          读取当前 Vibe 状态"
 	@echo "  make heartbeat       刷新当前 Vibe 状态心跳"
 	@echo "  make health          查看服务健康状态"
+	@echo "  make presets         查看内置状态 preset"
 	@echo "  make clear-blockers  清空阻塞项，可加 EVENT=\"说明\""
 	@echo "  make clear-events    清空最近事件，可加 EVENT=\"说明\""
 	@echo "  make preset-coding   切换到编码中 preset，并自动读取 Git 上下文"
@@ -59,6 +60,9 @@ heartbeat:
 
 health:
 	@KINDLEVIBE_URL=$(URL) $(PYTHON) vibe_update.py --health
+
+presets:
+	@$(PYTHON) vibe_update.py --list-presets
 
 clear-blockers:
 	@KINDLEVIBE_URL=$(URL) $(PYTHON) vibe_update.py --clear-blockers $(EVENT_ARG)
