@@ -127,6 +127,20 @@ class VibeStatusTests(unittest.TestCase):
         self.assertFalse(app.tokens_match("secret", "wrong"))
         self.assertFalse(app.tokens_match("", "secret"))
 
+    def test_public_config_redacts_configured_api_token(self):
+        original_config = app.config
+        try:
+            app.config = {
+                "security": {"api_token": "secret"},
+                "server": {"port": 8080},
+            }
+            safe = app.public_config()
+        finally:
+            app.config = original_config
+
+        self.assertEqual(safe["security"]["api_token"], "<configured>")
+        self.assertEqual(app.config, original_config)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,7 @@ KindleVibe-Python: Kindle-friendly dashboard for vibe coding status.
 """
 
 import argparse
+import copy
 import re
 import subprocess
 import json
@@ -147,6 +148,15 @@ config = load_config()
 def configured_api_token() -> str:
     """Return the optional API write token."""
     return str(config.get("security", {}).get("api_token", "")).strip()
+
+
+def public_config() -> Dict[str, Any]:
+    """Return configuration safe to expose through the read-only config API."""
+    safe_config = copy.deepcopy(config)
+    token = str(safe_config.get("security", {}).get("api_token", "")).strip()
+    if token:
+        safe_config.setdefault("security", {})["api_token"] = "<configured>"
+    return safe_config
 
 
 def tokens_match(expected: str, supplied: str) -> bool:
@@ -1693,7 +1703,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_no_cache_headers()
             self.end_headers()
-            self.wfile.write(json.dumps(config, indent=2).encode("utf-8"))
+            self.wfile.write(json.dumps(public_config(), indent=2, ensure_ascii=False).encode("utf-8"))
         
         else:
             self.send_response(404)
