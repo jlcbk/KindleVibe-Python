@@ -97,6 +97,12 @@ class VibeUpdateTests(unittest.TestCase):
         self.assertEqual(payload["project"], "文件项目")
         self.assertEqual(payload["participants"], ["@cli"])
 
+    def test_default_url_can_come_from_environment(self):
+        with patch.dict(vibe_update.os.environ, {"KINDLEVIBE_URL": "http://kindle.local/api/vibe"}):
+            args = vibe_update.parse_args([])
+
+        self.assertEqual(args.url, "http://kindle.local/api/vibe")
+
 
 if __name__ == "__main__":
     unittest.main()

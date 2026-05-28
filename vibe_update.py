@@ -5,6 +5,7 @@
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -15,11 +16,19 @@ from urllib import error, request
 DEFAULT_URL = "http://localhost:8080/api/vibe"
 
 
+def default_url() -> str:
+    return os.environ.get("KINDLEVIBE_URL", DEFAULT_URL)
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description="读取或更新 KindleVibe 的 vibe coding 状态"
     )
-    parser.add_argument("--url", default=DEFAULT_URL, help="KindleVibe API 地址")
+    parser.add_argument(
+        "--url",
+        default=default_url(),
+        help="KindleVibe API 地址；默认读取 KINDLEVIBE_URL，未设置时使用本机 8080"
+    )
     parser.add_argument("--state", help="当前状态，例如：编码中、等待评审、被阻塞")
     parser.add_argument("--project", help="当前项目")
     parser.add_argument("--branch", help="当前分支或工作区")

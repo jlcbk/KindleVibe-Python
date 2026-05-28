@@ -82,6 +82,13 @@ python3 vibe_update.py \
   --event "CLI 已经能写入状态。"
 ```
 
+如果 KindleVibe 不在本机 8080 端口，可以用环境变量设置默认 API 地址：
+
+```bash
+export KINDLEVIBE_URL=http://192.168.1.20:8080/api/vibe
+python3 vibe_update.py --heartbeat
+```
+
 只读取并输出中文摘要：
 
 ```bash
