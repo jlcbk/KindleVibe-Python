@@ -1284,6 +1284,27 @@ def generate_status_text(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def generate_presets_text(presets: list) -> str:
+    """Generate a plain-text preset list for old Kindle browsers and scripts."""
+    lines = [
+        "KindleVibe Presets",
+        "=" * 20,
+    ]
+
+    for preset in presets:
+        lines.extend([
+            f"- {preset.get('name', '')}",
+            f"  状态：{preset.get('state', '未指定')}",
+            f"  当前任务：{preset.get('current_task', '未指定')}",
+            f"  下一步：{preset.get('next_action', '未指定')}",
+        ])
+
+    if not presets:
+        lines.append("- 暂无可用 preset")
+
+    return "\n".join(lines) + "\n"
+
+
 def build_health_status(usage: CodexUsage, vibe_status: Dict[str, Any]) -> Dict[str, Any]:
     """Build a compact health payload for agents and monitoring scripts."""
     return {
@@ -1692,6 +1713,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_no_cache_headers()
             self.end_headers()
             self.wfile.write(status_text.encode("utf-8"))
+
+        elif path == "/presets.txt":
+            presets_text = generate_presets_text(load_vibe_presets())
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_no_cache_headers()
+            self.end_headers()
+            self.wfile.write(presets_text.encode("utf-8"))
         
         elif path == "/api/usage":
             with cache_lock:

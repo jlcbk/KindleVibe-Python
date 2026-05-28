@@ -10,6 +10,7 @@
 - `GET /api/vibe` / `POST /api/vibe` 状态读取与写入接口。
 - `vibe_update.py` CLI，支持状态写入、心跳、健康检查、JSON 输出、从 Git 自动填充上下文、从 JSON 状态包读取、环境变量配置 URL/token。
 - `GET /status.txt` 纯文本兜底页。
+- `GET /presets.txt` 纯文本内置状态包列表。
 - `GET /api/health` 健康检查接口。
 - `GET /api/presets` 返回内置状态包模板摘要和 payload。
 - 心跳/过期提示，并支持在设置页调整过期阈值。

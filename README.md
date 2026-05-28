@@ -264,6 +264,7 @@ make clear-events EVENT="开始新一轮状态记录。"
 
 - `GET /`：Kindle 主看板。
 - `GET /status.txt`：纯文本状态摘要。
+- `GET /presets.txt`：纯文本内置状态包列表。
 - `GET /settings`：设置页。
 - `GET /api/vibe`：读取 vibe coding 状态。
 - `POST /api/vibe`：更新 vibe coding 状态。

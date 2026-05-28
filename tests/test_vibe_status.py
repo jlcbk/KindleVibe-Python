@@ -145,6 +145,14 @@ class VibeStatusTests(unittest.TestCase):
             self.assertIn("next_action", preset)
             self.assertIsInstance(preset["payload"], dict)
 
+    def test_generate_presets_text_contains_preset_summary(self):
+        text = app.generate_presets_text(app.load_vibe_presets())
+
+        self.assertIn("KindleVibe Presets", text)
+        self.assertIn("- coding", text)
+        self.assertIn("状态：编码中", text)
+        self.assertIn("下一步：", text)
+
     def test_token_comparison_requires_configured_token(self):
         self.assertTrue(app.tokens_match("secret", "secret"))
         self.assertFalse(app.tokens_match("secret", "wrong"))

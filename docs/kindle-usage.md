@@ -219,6 +219,12 @@ http://<电脑局域网 IP>:8080/api/health
 http://<电脑局域网 IP>:8080/api/presets
 ```
 
+旧浏览器或终端可以用纯文本版本：
+
+```text
+http://<电脑局域网 IP>:8080/presets.txt
+```
+
 ## 过期提示
 
 看板会根据 `vibe.stale_after_seconds` 判断状态是否可能过期。默认值是 900 秒。
