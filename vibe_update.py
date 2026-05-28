@@ -5,7 +5,9 @@
 
 import argparse
 import json
+import subprocess
 import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib import error, request
 
@@ -48,6 +50,12 @@ def parse_args(argv=None):
         help="输出完整 JSON，而不是中文摘要"
     )
     parser.add_argument("--timeout", type=float, default=5.0, help="请求超时时间")
+    parser.add_argument(
+        "--from-git",
+        action="store_true",
+        help="从当前 Git 仓库自动填充项目名和分支"
+    )
+    parser.add_argument("--cwd", default=".", help="配合 --from-git 使用的工作目录")
     return parser.parse_args(argv)
 
 
@@ -59,6 +67,39 @@ def clean_list(values) -> list:
     if values is None:
         return []
     return [item for item in (clean_text(value) for value in values) if item]
+
+
+def git_output(cwd: str, *args: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def detect_git_context(cwd: str) -> Dict[str, str]:
+    root = git_output(cwd, "rev-parse", "--show-toplevel")
+    if not root:
+        return {}
+
+    branch = git_output(cwd, "rev-parse", "--abbrev-ref", "HEAD")
+    if branch == "HEAD":
+        short_sha = git_output(cwd, "rev-parse", "--short", "HEAD")
+        branch = f"detached:{short_sha}" if short_sha else "detached"
+
+    context = {"project": Path(root).name}
+    if branch:
+        context["branch"] = branch
+    return context
 
 
 def build_payload(args) -> Dict[str, Any]:
@@ -82,6 +123,9 @@ def build_payload(args) -> Dict[str, Any]:
         payload["blockers"] = clean_list(args.blocker)
     if args.heartbeat:
         payload["heartbeat"] = True
+    if args.from_git:
+        for key, value in detect_git_context(args.cwd).items():
+            payload.setdefault(key, value)
 
     return payload
 

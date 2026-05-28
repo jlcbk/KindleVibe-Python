@@ -1,6 +1,8 @@
 import sys
+import subprocess
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +53,27 @@ class VibeUpdateTests(unittest.TestCase):
         self.assertIn("项目：KindleVibe-Python / 分支：main", summary)
         self.assertIn("阻塞项：无", summary)
         self.assertIn("最近事件：测试通过。", summary)
+
+    def test_from_git_fills_project_and_branch_without_overriding_explicit_values(self):
+        def fake_run(cmd, cwd, capture_output, text, timeout):
+            self.assertEqual(cwd, "/tmp/work")
+            if cmd[1:] == ["rev-parse", "--show-toplevel"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="/tmp/work/KindleVibe-Python\n")
+            if cmd[1:] == ["rev-parse", "--abbrev-ref", "HEAD"]:
+                return subprocess.CompletedProcess(cmd, 0, stdout="feature/status\n")
+            return subprocess.CompletedProcess(cmd, 1, stdout="")
+
+        args = vibe_update.parse_args([
+            "--from-git",
+            "--cwd", "/tmp/work",
+            "--project", "显式项目",
+        ])
+
+        with patch("vibe_update.subprocess.run", side_effect=fake_run):
+            payload = vibe_update.build_payload(args)
+
+        self.assertEqual(payload["project"], "显式项目")
+        self.assertEqual(payload["branch"], "feature/status")
 
 
 if __name__ == "__main__":

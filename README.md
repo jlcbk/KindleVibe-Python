@@ -99,6 +99,18 @@ python3 vibe_update.py --json
 python3 vibe_update.py --heartbeat
 ```
 
+从当前 Git 仓库自动填充项目名和分支：
+
+```bash
+python3 vibe_update.py --from-git --state 编码中 --event "继续推进当前仓库。"
+```
+
+在脚本中指定要读取的 Git 工作目录：
+
+```bash
+python3 vibe_update.py --from-git --cwd /path/to/repo --heartbeat
+```
+
 字段说明：
 
 | 字段 | 说明 |
