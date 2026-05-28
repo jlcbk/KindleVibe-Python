@@ -24,6 +24,8 @@ make run PYTHON=/path/to/python3
 
 ## 后台运行
 
+### Linux systemd
+
 Linux 用户可以参考 `examples/systemd/kindlevibe.service` 创建 user service。
 
 复制示例文件：
@@ -50,6 +52,37 @@ systemctl --user status kindlevibe.service
 
 ```bash
 journalctl --user -u kindlevibe.service -f
+```
+
+### macOS launchd
+
+macOS 用户可以参考 `examples/launchd/com.kindlevibe.plist` 创建 launchd agent。
+
+复制示例文件：
+
+```bash
+mkdir -p ~/Library/LaunchAgents
+cp examples/launchd/com.kindlevibe.plist ~/Library/LaunchAgents/com.kindlevibe.plist
+```
+
+根据实际路径修改：
+
+- `WorkingDirectory`
+- `ProgramArguments` 里的 Python 路径、端口和监听地址
+- 日志路径 `StandardOutPath` / `StandardErrorPath`
+
+加载并启动：
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.kindlevibe.plist 2>/dev/null || true
+launchctl load ~/Library/LaunchAgents/com.kindlevibe.plist
+launchctl start com.kindlevibe
+```
+
+查看日志：
+
+```bash
+tail -f /tmp/kindlevibe.out.log /tmp/kindlevibe.err.log
 ```
 
 ## Kindle 端使用
