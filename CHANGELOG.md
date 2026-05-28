@@ -11,6 +11,7 @@
 - `vibe_update.py` CLI，支持状态写入、心跳、健康检查、JSON 输出、从 Git 自动填充上下文、从 JSON 状态包读取、环境变量配置 URL/token。
 - `GET /status.txt` 纯文本兜底页。
 - `GET /api/health` 健康检查接口。
+- `GET /api/presets` 返回内置状态包模板摘要和 payload。
 - 心跳/过期提示，并支持在设置页调整过期阈值。
 - 可选 `security.api_token` 写入鉴权。
 - `GET /api/config` 对已配置 token 脱敏。
@@ -20,7 +21,7 @@
 - `vibe_update.py --list-presets` 可以列出内置状态包模板摘要。
 - 主页面使用 `meta refresh` 自动刷新，不依赖 JavaScript。
 - 主页面、设置页、纯文本页和 API 统一 no-cache 响应头。
-- Makefile 快捷命令：`make status`、`make heartbeat`、`make health`、`make clear-blockers`、`make clear-events`、`make preset-coding`、`make preset-review`、`make preset-blocked`、`make preset-done`、`make ci`。
+- Makefile 快捷命令：`make status`、`make heartbeat`、`make health`、`make presets`、`make clear-blockers`、`make clear-events`、`make preset-coding`、`make preset-review`、`make preset-blocked`、`make preset-done`、`make ci`。
 - GitHub Actions CI，自动运行 py_compile 和 unittest。
 - 中文使用指南、安全说明、systemd user service 示例、macOS launchd 示例。
 - 中文贡献指南，固定本地开发、验证、兼容性和 PR 交接要求。

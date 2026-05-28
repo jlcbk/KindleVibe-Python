@@ -133,6 +133,18 @@ class VibeStatusTests(unittest.TestCase):
         self.assertFalse(health["vibe"]["stale"])
         self.assertEqual(health["codex"]["source"], "session")
 
+    def test_load_vibe_presets_exposes_payloads(self):
+        presets = app.load_vibe_presets()
+        names = {preset["name"] for preset in presets}
+
+        self.assertEqual(names, set(app.PRESET_NAMES))
+        self.assertEqual(len(presets), 4)
+        for preset in presets:
+            self.assertIn("state", preset)
+            self.assertIn("current_task", preset)
+            self.assertIn("next_action", preset)
+            self.assertIsInstance(preset["payload"], dict)
+
     def test_token_comparison_requires_configured_token(self):
         self.assertTrue(app.tokens_match("secret", "secret"))
         self.assertFalse(app.tokens_match("secret", "wrong"))

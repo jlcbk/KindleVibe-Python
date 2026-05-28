@@ -134,6 +134,7 @@ python3 vibe_update.py --heartbeat
 make status
 make heartbeat
 make health
+make presets
 make clear-blockers EVENT="阻塞项已解除。"
 make clear-events EVENT="开始新一轮状态记录。"
 make preset-coding EVENT="开始编码。"
@@ -210,6 +211,12 @@ python3 vibe_update.py --health --json
 
 ```text
 http://<电脑局域网 IP>:8080/api/health
+```
+
+远程脚本如果需要发现内置状态模板，可以读取：
+
+```text
+http://<电脑局域网 IP>:8080/api/presets
 ```
 
 ## 过期提示

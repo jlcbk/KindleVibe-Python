@@ -64,6 +64,8 @@ logger = setup_logging()
 
 CONFIG_FILE = Path(__file__).parent / "config.json"
 STATUS_FILE = Path(__file__).parent / "vibe_status.json"
+PRESET_DIR = Path(__file__).parent / "examples" / "payloads"
+PRESET_NAMES = ("coding", "review", "blocked", "done")
 MAX_EVENT_ITEMS = 8
 
 DEFAULT_CONFIG = {
@@ -344,6 +346,31 @@ def update_vibe_status(patch: Dict[str, Any]) -> Dict[str, Any]:
     if not save_vibe_status(status):
         raise OSError("failed to save vibe status")
     return load_vibe_status()
+
+
+def load_vibe_presets() -> list:
+    """Load built-in vibe preset summaries for API consumers."""
+    presets = []
+    for name in PRESET_NAMES:
+        path = PRESET_DIR / f"{name}.json"
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load vibe preset {name}: {e}")
+            continue
+        if not isinstance(payload, dict):
+            logger.warning(f"Vibe preset {name} is not a JSON object")
+            continue
+
+        presets.append({
+            "name": name,
+            "state": _as_clean_text(payload.get("state")),
+            "current_task": _as_clean_text(payload.get("current_task")),
+            "next_action": _as_clean_text(payload.get("next_action")),
+            "payload": payload,
+        })
+    return presets
 
 
 # ============================================================================
@@ -1693,6 +1720,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_no_cache_headers()
             self.end_headers()
             self.wfile.write(json.dumps(load_vibe_status(), indent=2, ensure_ascii=False).encode("utf-8"))
+
+        elif path == "/api/presets":
+            self.send_json(200, {"presets": load_vibe_presets()})
         
         elif path == "/api/config":
             self.send_response(200)

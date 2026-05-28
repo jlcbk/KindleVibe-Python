@@ -128,6 +128,7 @@ python3 vibe_update.py --health
 make status
 make heartbeat
 make health
+make presets
 make clear-blockers EVENT="阻塞项已解除。"
 make clear-events EVENT="开始新一轮状态记录。"
 make preset-coding EVENT="开始编码。"
@@ -267,6 +268,7 @@ make clear-events EVENT="开始新一轮状态记录。"
 - `GET /api/vibe`：读取 vibe coding 状态。
 - `POST /api/vibe`：更新 vibe coding 状态。
 - `GET /api/health`：健康检查，返回服务状态、vibe 状态是否过期、Codex 数据是否报错。
+- `GET /api/presets`：读取内置状态包模板摘要和原始 payload。
 - `GET /api/usage`：读取 Codex 用量。
 - `GET /api/config`：读取当前配置；如果配置了 `security.api_token`，该字段会脱敏显示。
 
