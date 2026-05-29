@@ -232,7 +232,7 @@ class VibeStatusTests(unittest.TestCase):
 
         week_file = archive_dir / "week.jsonl"
         with open(week_file, "w", encoding="utf-8") as f:
-            f.write(json.dumps(token_event(now - timedelta(days=3), 70, 80, 20)) + "\n")
+            f.write(json.dumps(token_event(now - timedelta(days=3), 100, 80, 20)) + "\n")
 
         old_file = session_dir / "old.jsonl"
         with open(old_file, "w", encoding="utf-8") as f:
@@ -249,7 +249,7 @@ class VibeStatusTests(unittest.TestCase):
         self.assertEqual(window_24h["session_count"], 1)
 
         window_7d = usage["windows"]["7d"]
-        self.assertEqual(window_7d["total_tokens"], 100)
+        self.assertEqual(window_7d["total_tokens"], 130)
         self.assertEqual(window_7d["input_tokens"], 100)
         self.assertEqual(window_7d["cached_input_tokens"], 30)
         self.assertEqual(window_7d["cache_hit_percent"], 30.0)
