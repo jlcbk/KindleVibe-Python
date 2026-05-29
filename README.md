@@ -134,6 +134,12 @@ python3 vibe_update.py --json
 python3 vibe_update.py --health
 ```
 
+等待服务可用后再输出健康状态，适合启动脚本：
+
+```bash
+python3 vibe_update.py --wait-health --wait-timeout 30
+```
+
 常用操作也可以通过 Makefile 调用：
 
 ```bash

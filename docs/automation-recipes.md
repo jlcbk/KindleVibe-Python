@@ -125,6 +125,7 @@ make clear-events EVENT="开始新的目标。"
 ```bash
 python3 vibe_update.py
 python3 vibe_update.py --health
+python3 vibe_update.py --wait-health --wait-timeout 30
 python3 vibe_update.py --list-presets
 ```
 

@@ -13,7 +13,6 @@
 
 ### CLI 和自动化
 
-- 增加 `vibe_update.py --wait-health`，便于启动脚本等待服务可用。
 - 增加批量事件导入能力，方便脚本一次写入多条关键事件。
 - 为常见 agent 工作流补充更多 preset，例如 `testing`、`deploying`、`paused`。
 - 给 `make preset-*` 增加更明确的失败提示，区分服务不可达和 token 错误。

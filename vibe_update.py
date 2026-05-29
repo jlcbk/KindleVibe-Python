@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib import error, request
@@ -88,6 +89,23 @@ def parse_args(argv=None):
         "--health",
         action="store_true",
         help="读取 /api/health 并输出服务健康状态"
+    )
+    parser.add_argument(
+        "--wait-health",
+        action="store_true",
+        help="等待 /api/health 可用后输出服务健康状态"
+    )
+    parser.add_argument(
+        "--wait-timeout",
+        type=float,
+        default=30.0,
+        help="配合 --wait-health 使用的总等待秒数"
+    )
+    parser.add_argument(
+        "--wait-interval",
+        type=float,
+        default=1.0,
+        help="配合 --wait-health 使用的重试间隔秒数"
     )
     parser.add_argument(
         "--payload-file",
@@ -323,6 +341,31 @@ def format_health_summary(health: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def wait_for_health(
+    url: str,
+    request_timeout: float,
+    wait_timeout: float,
+    wait_interval: float,
+    token: str = "",
+    sleep_fn=time.sleep,
+    monotonic_fn=time.monotonic,
+) -> Dict[str, Any]:
+    deadline = monotonic_fn() + max(0.0, wait_timeout)
+    interval = max(0.1, wait_interval)
+    last_error = ""
+
+    while True:
+        try:
+            return request_vibe(derive_health_url(url), None, request_timeout, token)
+        except RuntimeError as e:
+            last_error = str(e)
+
+        now = monotonic_fn()
+        if now >= deadline:
+            raise RuntimeError(f"等待服务健康超时：{last_error}")
+        sleep_fn(min(interval, max(0.0, deadline - now)))
+
+
 def main(argv=None) -> int:
     args = parse_args(argv)
     if args.list_presets:
@@ -331,6 +374,25 @@ def main(argv=None) -> int:
             print(json.dumps(presets, indent=2, ensure_ascii=False))
         else:
             print(format_preset_list(presets))
+        return 0
+
+    if args.wait_health:
+        try:
+            health = wait_for_health(
+                args.url,
+                args.timeout,
+                args.wait_timeout,
+                args.wait_interval,
+                args.token,
+            )
+        except RuntimeError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+
+        if args.json:
+            print(json.dumps(health, indent=2, ensure_ascii=False))
+        else:
+            print(format_health_summary(health))
         return 0
 
     if args.health:

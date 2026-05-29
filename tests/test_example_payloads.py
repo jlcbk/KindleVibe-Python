@@ -34,3 +34,11 @@ class ExamplePayloadTests(unittest.TestCase):
             with self.subTest(payload=payload_file.name):
                 payload = vibe_update.load_payload_file(str(payload_file))
                 self.assertEqual(payload["state"], json.loads(payload_file.read_text(encoding="utf-8"))["state"])
+
+    def test_cli_preset_names_match_payload_files(self):
+        payload_names = {
+            payload_file.stem
+            for payload_file in (ROOT / "examples" / "payloads").glob("*.json")
+        }
+
+        self.assertEqual(payload_names, set(vibe_update.PRESET_NAMES))

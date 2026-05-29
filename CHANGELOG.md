@@ -8,7 +8,7 @@
 
 - Kindle 友好的 Vibe Coding 主看板，展示目标、项目、分支、当前任务、下一步、参与者、阻塞项和最近事件。
 - `GET /api/vibe` / `POST /api/vibe` 状态读取与写入接口。
-- `vibe_update.py` CLI，支持状态写入、心跳、健康检查、JSON 输出、从 Git 自动填充上下文、从 JSON 状态包读取、环境变量配置 URL/token。
+- `vibe_update.py` CLI，支持状态写入、心跳、健康检查、等待健康检查、JSON 输出、从 Git 自动填充上下文、从 JSON 状态包读取、环境变量配置 URL/token。
 - `GET /status.txt` 纯文本兜底页。
 - `GET /presets.txt` 纯文本内置状态包列表。
 - `GET /api/health` 健康检查接口。
