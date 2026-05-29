@@ -12,6 +12,7 @@ KindleVibe-Python 是一个面向 Kindle 浏览器的常亮状态面板，用来
 - **纯文本兜底页**：`/status.txt` 提供不依赖 CSS/JS 的状态摘要，适合旧 Kindle 浏览器、终端和监控脚本。
 - **心跳/过期提示**：当状态长时间没有更新时，页面和纯文本端点会提示“可能过期”。
 - **Codex 用量监控**：优先通过 Codex CLI RPC 读取账号额度百分比，失败后回退到本地会话文件；同时展示本机近 24 小时和近 7 天 Token 消耗、缓存命中率。
+- **多分辨率/横屏布局**：主看板支持自动、竖屏、横屏三种布局模式，可在网页端手动切换，适合 Kindle、旧手机和平板。
 - **自动刷新**：主看板使用 HTML `meta refresh` 按配置周期自动刷新，不依赖 JavaScript。
 - **禁用缓存**：主页面、纯文本页和 API 默认发送 no-cache 响应头，减少 Kindle 显示旧状态的概率。
 - **浏览器设置页**：可以在 `/settings` 中调整端口、刷新间隔、Codex 来源和显示内容。
@@ -273,7 +274,8 @@ make clear-events EVENT="开始新一轮状态记录。"
     "show_credits": false,
     "show_plan_type": true,
     "show_data_source": true,
-    "show_last_updated": true
+    "show_last_updated": true,
+    "layout_mode": "auto"
   }
 }
 ```
@@ -284,6 +286,7 @@ make clear-events EVENT="开始新一轮状态记录。"
 - `GET /status.txt`：纯文本状态摘要。
 - `GET /presets.txt`：纯文本内置状态包列表。
 - `GET /settings`：设置页。
+- `GET /layout?mode=auto|portrait|landscape`：切换主看板布局模式，并返回首页。
 - `GET /api/vibe`：读取 vibe coding 状态。
 - `POST /api/vibe`：更新 vibe coding 状态。
 - `GET /api/health`：健康检查，返回服务状态、vibe 状态是否过期、Codex 数据是否报错。

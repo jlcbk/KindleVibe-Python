@@ -94,6 +94,18 @@ tail -f /tmp/kindlevibe.out.log /tmp/kindlevibe.err.log
 
 主看板使用 HTML `meta refresh` 自动刷新，不依赖 JavaScript。响应也会发送 no-cache 头，减少 Kindle 显示旧页面的概率。
 
+主看板顶部提供“自动 / 竖屏 / 横屏”布局切换。自动模式会按浏览器尺寸和屏幕方向适配；横屏模式会强制使用宽屏双栏布局，适合不能自动旋转的 Kindle、旧手机或平板。也可以直接访问：
+
+```text
+http://<电脑局域网 IP>:8080/layout?mode=landscape
+```
+
+切回自动模式：
+
+```text
+http://<电脑局域网 IP>:8080/layout?mode=auto
+```
+
 如果主页面渲染异常，可以访问纯文本兜底页：
 
 ```text

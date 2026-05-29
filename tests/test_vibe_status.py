@@ -131,11 +131,40 @@ class VibeStatusTests(unittest.TestCase):
         self.assertIn("缓存命中 50.0%", html)
         self.assertIn("23,456 tokens", html)
 
+    def test_main_html_exposes_layout_switch_and_landscape_class(self):
+        original_config = app.config
+        try:
+            app.config = app.merge_configs(app.DEFAULT_CONFIG, {
+                "display": {"layout_mode": "landscape"}
+            })
+            html = app.generate_main_html(app.CodexUsage(), app.default_vibe_status())
+        finally:
+            app.config = original_config
+
+        self.assertIn('class="layout-landscape"', html)
+        self.assertIn("横屏布局", html)
+        self.assertIn('href="/layout?mode=auto"', html)
+        self.assertIn('href="/layout?mode=portrait"', html)
+        self.assertIn('href="/layout?mode=landscape"', html)
+        self.assertIn("dashboard-layout", html)
+
+    def test_normalize_layout_mode_falls_back_to_auto(self):
+        self.assertEqual(app.normalize_layout_mode("landscape"), "landscape")
+        self.assertEqual(app.normalize_layout_mode("portrait"), "portrait")
+        self.assertEqual(app.normalize_layout_mode("bad-value"), "auto")
+
     def test_settings_html_exposes_stale_threshold(self):
         html = app.generate_settings_html()
 
         self.assertIn('name="stale_after_seconds"', html)
         self.assertIn("状态过期阈值", html)
+
+    def test_settings_html_exposes_layout_mode(self):
+        html = app.generate_settings_html()
+
+        self.assertIn('name="layout_mode"', html)
+        self.assertIn("强制横屏布局", html)
+        self.assertIn("不能自动旋转", html)
 
     def test_build_health_status_reports_vibe_and_codex_state(self):
         usage = app.CodexUsage()

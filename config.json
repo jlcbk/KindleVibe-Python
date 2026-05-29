@@ -23,6 +23,7 @@
     "show_plan_type": true,
     "show_data_source": true,
     "show_last_updated": true,
-    "show_vibe_board": true
+    "show_vibe_board": true,
+    "layout_mode": "auto"
   }
 }

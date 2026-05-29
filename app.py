@@ -67,6 +67,12 @@ STATUS_FILE = Path(__file__).parent / "vibe_status.json"
 PRESET_DIR = Path(__file__).parent / "examples" / "payloads"
 PRESET_NAMES = ("coding", "review", "blocked", "done")
 MAX_EVENT_ITEMS = 8
+LAYOUT_MODES = ("auto", "portrait", "landscape")
+LAYOUT_MODE_LABELS = {
+    "auto": "自动",
+    "portrait": "竖屏",
+    "landscape": "横屏",
+}
 
 DEFAULT_CONFIG = {
     "server": {
@@ -93,7 +99,8 @@ DEFAULT_CONFIG = {
         "show_plan_type": True,
         "show_data_source": True,
         "show_last_updated": True,
-        "show_vibe_board": True
+        "show_vibe_board": True,
+        "layout_mode": "auto"
     }
 }
 
@@ -137,6 +144,17 @@ def merge_configs(default: Dict, override: Dict) -> Dict:
         else:
             result[key] = value
     return result
+
+
+def normalize_layout_mode(value: Any) -> str:
+    """Return a supported dashboard layout mode."""
+    mode = str(value or "").strip().lower()
+    return mode if mode in LAYOUT_MODES else "auto"
+
+
+def current_layout_mode() -> str:
+    """Return the configured dashboard layout mode."""
+    return normalize_layout_mode(config.get("display", {}).get("layout_mode", "auto"))
 
 
 # Global config
@@ -927,6 +945,10 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             return "暂无"
         return f"{number:.1f}%"
 
+    def layout_link(mode: str) -> str:
+        active_class = " active" if mode == layout_mode else ""
+        return f'<a class="layout-option{active_class}" href="/layout?mode={h(mode)}">{h(LAYOUT_MODE_LABELS[mode])}</a>'
+
     token_24h = token_window("24h", 24)
     token_7d = token_window("7d", 24 * 7)
     five_hour_percent = percent(usage.five_hour_percent_left)
@@ -938,6 +960,9 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
     source = usage.source if usage.source else "未知"
     last_updated = usage.last_updated if usage.last_updated else "从未更新"
     refresh_ms = config.get("refresh", {}).get("auto_refresh_page_ms", 300000)
+    layout_mode = current_layout_mode()
+    layout_label = LAYOUT_MODE_LABELS.get(layout_mode, "自动")
+    layout_switch = "".join(layout_link(mode) for mode in LAYOUT_MODES)
 
     display = config.get("display", {})
 
@@ -1058,9 +1083,17 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             background: #ffffff;
             color: #000000;
             padding: 18px;
-            max-width: 980px;
+            max-width: 1040px;
             margin: 0 auto;
             line-height: 1.35;
+        }}
+
+        .layout-portrait {{
+            max-width: 820px;
+        }}
+
+        .layout-landscape {{
+            max-width: 1180px;
         }}
 
         .header {{
@@ -1082,16 +1115,73 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             color: #333333;
         }}
 
-        .settings-btn {{
+        .header-actions {{
             position: absolute;
             top: 0;
             right: 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }}
+
+        .settings-btn {{
             background: #000000;
             color: #ffffff;
             border: 2px solid #000000;
             padding: 9px 14px;
             font-size: 18px;
             text-decoration: none;
+        }}
+
+        .layout-switch {{
+            display: flex;
+            border: 2px solid #000000;
+            background: #ffffff;
+        }}
+
+        .layout-option {{
+            display: inline-block;
+            min-width: 58px;
+            color: #000000;
+            padding: 9px 10px;
+            border-right: 1px solid #000000;
+            font-size: 18px;
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+        }}
+
+        .layout-option:last-child {{
+            border-right: 0;
+        }}
+
+        .layout-option.active {{
+            color: #ffffff;
+            background: #000000;
+        }}
+
+        .dashboard-layout {{
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 18px;
+            align-items: start;
+        }}
+
+        .usage-stack {{
+            display: grid;
+            gap: 18px;
+            min-width: 0;
+        }}
+
+        .dashboard-layout > .usage-stack:only-child {{
+            grid-column: 1 / -1;
+        }}
+
+        .dashboard-layout > .panel,
+        .usage-stack .panel {{
+            margin-bottom: 0;
         }}
 
         .panel {{
@@ -1353,6 +1443,28 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             font-size: 16px;
         }}
 
+        .layout-landscape .dashboard-layout {{
+            grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+        }}
+
+        .layout-landscape .panel {{
+            margin-bottom: 0;
+        }}
+
+        @media (orientation: landscape) and (min-width: 860px), (min-width: 1100px) {{
+            .layout-auto {{
+                max-width: 1180px;
+            }}
+
+            .layout-auto .dashboard-layout {{
+                grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+            }}
+
+            .layout-auto .panel {{
+                margin-bottom: 0;
+            }}
+        }}
+
         @media (max-width: 720px) {{
             body {{
                 padding: 12px;
@@ -1362,10 +1474,16 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
                 font-size: 34px;
             }}
 
-            .settings-btn {{
+            .header-actions {{
                 position: static;
-                display: inline-block;
                 margin-top: 12px;
+                justify-content: flex-start;
+            }}
+
+            .settings-btn,
+            .layout-option {{
+                font-size: 16px;
+                padding: 8px 10px;
             }}
 
             .fact-grid,
@@ -1381,64 +1499,119 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
                 font-size: 24px;
             }}
         }}
+
+        @media (max-width: 720px) {{
+            .layout-landscape {{
+                min-width: 920px;
+                max-width: 1180px;
+            }}
+
+            .layout-landscape .dashboard-layout {{
+                grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+            }}
+
+            .layout-landscape .header-actions {{
+                position: absolute;
+                top: 0;
+                right: 0;
+                margin-top: 0;
+                justify-content: flex-end;
+            }}
+
+            .layout-landscape .settings-btn,
+            .layout-landscape .layout-option {{
+                font-size: 18px;
+                padding: 9px 10px;
+            }}
+
+            .layout-landscape .fact-grid {{
+                grid-template-columns: repeat(3, 1fr);
+            }}
+
+            .layout-landscape .focus-row,
+            .layout-landscape .tag-row {{
+                grid-template-columns: 1fr 1fr;
+            }}
+
+            .layout-landscape .limit-row {{
+                grid-template-columns: 180px 1fr 110px;
+            }}
+
+            .layout-landscape .token-row {{
+                grid-template-columns: 150px 1fr 180px;
+            }}
+
+            .layout-landscape .event-row {{
+                grid-template-columns: 180px 1fr;
+            }}
+        }}
     </style>
 </head>
-<body>
+<body class="layout-{h(layout_mode)}">
     <header class="header">
         <h1>KindleVibe</h1>
-        <div class="subtitle">Vibe Coding 常亮状态面板</div>
-        <a href="/settings" class="settings-btn">设置</a>
+        <div class="subtitle">Vibe Coding 常亮状态面板 · {h(layout_label)}布局</div>
+        <div class="header-actions">
+            <nav class="layout-switch" aria-label="布局模式">
+                {layout_switch}
+            </nav>
+            <a href="/settings" class="settings-btn">设置</a>
+        </div>
     </header>
 
-    {vibe_board}
+    <main class="dashboard-layout">
+        {vibe_board}
 
-    <section class="panel">
-        <h2>Codex 用量</h2>
+        <div class="usage-stack">
+            <section class="panel">
+                <h2>Codex 用量</h2>
 
-        <div class="limit-row">
-            <div>
-                <div class="limit-label">5 小时额度</div>
-                <div class="limit-reset">重置：{h(five_hour_reset)}</div>
-            </div>
-            <div class="limit-bar">
-                <div class="limit-bar-fill" style="width: {five_hour_percent}%"></div>
-            </div>
-            <div class="limit-percent">{five_hour_percent}%</div>
+                <div class="limit-row">
+                    <div>
+                        <div class="limit-label">5 小时额度</div>
+                        <div class="limit-reset">重置：{h(five_hour_reset)}</div>
+                    </div>
+                    <div class="limit-bar">
+                        <div class="limit-bar-fill" style="width: {five_hour_percent}%"></div>
+                    </div>
+                    <div class="limit-percent">{five_hour_percent}%</div>
+                </div>
+
+                <div class="limit-row">
+                    <div>
+                        <div class="limit-label">周额度</div>
+                        <div class="limit-reset">重置：{h(weekly_reset)}</div>
+                    </div>
+                    <div class="limit-bar">
+                        <div class="limit-bar-fill" style="width: {weekly_percent}%"></div>
+                    </div>
+                    <div class="limit-percent">{weekly_percent}%</div>
+                </div>
+
+                <div class="token-block">
+                    <div class="section-label">本机 Token 消耗</div>
+                    <div class="token-row">
+                        <span class="token-window">近 24 小时</span>
+                        <span class="token-value">{token_count(token_24h.get("total_tokens"))}</span>
+                        <span class="token-cache">缓存命中 {cache_hit(token_24h.get("cache_hit_percent"))}</span>
+                    </div>
+                    <div class="token-row">
+                        <span class="token-window">近 7 天</span>
+                        <span class="token-value">{token_count(token_7d.get("total_tokens"))}</span>
+                        <span class="token-cache">缓存命中 {cache_hit(token_7d.get("cache_hit_percent"))}</span>
+                    </div>
+                    <div class="token-note">Token 数来自本机 Codex 会话文件；额度百分比来自服务器侧 RPC。</div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2>账户信息</h2>
+                {account_info_rows}
+            </section>
+
+            {error_section}
         </div>
-
-        <div class="limit-row">
-            <div>
-                <div class="limit-label">周额度</div>
-                <div class="limit-reset">重置：{h(weekly_reset)}</div>
-            </div>
-            <div class="limit-bar">
-                <div class="limit-bar-fill" style="width: {weekly_percent}%"></div>
-            </div>
-            <div class="limit-percent">{weekly_percent}%</div>
-        </div>
-
-        <div class="token-block">
-            <div class="section-label">本机 Token 消耗</div>
-            <div class="token-row">
-                <span class="token-window">近 24 小时</span>
-                <span class="token-value">{token_count(token_24h.get("total_tokens"))}</span>
-                <span class="token-cache">缓存命中 {cache_hit(token_24h.get("cache_hit_percent"))}</span>
-            </div>
-            <div class="token-row">
-                <span class="token-window">近 7 天</span>
-                <span class="token-value">{token_count(token_7d.get("total_tokens"))}</span>
-                <span class="token-cache">缓存命中 {cache_hit(token_7d.get("cache_hit_percent"))}</span>
-            </div>
-            <div class="token-note">Token 数来自本机 Codex 会话文件；额度百分比来自服务器侧 RPC。</div>
-        </div>
-    </section>
-
-    <section class="panel">
-        <h2>账户信息</h2>
-        {account_info_rows}
-    </section>
-
-    {error_section}
+    </main>
 
     <footer class="footer">
         <div>页面每 {refresh_ms // 1000} 秒自动刷新</div>
@@ -1490,10 +1663,12 @@ def generate_status_text(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
     heartbeat = "可能过期" if is_vibe_status_stale(vibe_status) else "正常"
     token_24h = token_window("24h", 24)
     token_7d = token_window("7d", 24 * 7)
+    layout_label = LAYOUT_MODE_LABELS.get(current_layout_mode(), "自动")
 
     lines = [
         "KindleVibe",
         "=" * 20,
+        f"布局模式：{layout_label}",
         f"状态：{text(vibe_status.get('state'), '待更新')}",
         f"目标：{text(vibe_status.get('objective'))}",
         f"项目：{text(vibe_status.get('project'))}",
@@ -1605,6 +1780,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
     show_source = display.get("show_data_source", True)
     show_updated = display.get("show_last_updated", True)
     show_vibe = display.get("show_vibe_board", True)
+    layout_mode = normalize_layout_mode(display.get("layout_mode", "auto"))
     
     def checked(val):
         return "checked" if val else ""
@@ -1851,6 +2027,16 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
         
         <div class="settings-section">
             <h2>显示设置</h2>
+
+            <div class="form-group">
+                <label for="layout_mode">布局模式：</label>
+                <select id="layout_mode" name="layout_mode">
+                    <option value="auto" {selected(layout_mode, "auto")}>自动适配</option>
+                    <option value="portrait" {selected(layout_mode, "portrait")}>强制竖屏布局</option>
+                    <option value="landscape" {selected(layout_mode, "landscape")}>强制横屏布局</option>
+                </select>
+                <div class="help-text">自动模式按屏幕尺寸和方向适配；横屏模式会使用宽屏双栏布局，适合不能自动旋转的设备从网页端手动切换。</div>
+            </div>
             
             <div class="form-group">
                 <label class="checkbox-label">
@@ -1953,6 +2139,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_no_cache_headers()
             self.end_headers()
             self.wfile.write(html.encode("utf-8"))
+
+        elif path == "/layout":
+            requested = parse_qs(parsed_path.query).get("mode", ["auto"])[0]
+            config.setdefault("display", {})["layout_mode"] = normalize_layout_mode(requested)
+            save_config(config)
+            self.send_response(303)
+            self.send_header("Location", "/")
+            self.send_no_cache_headers()
+            self.end_headers()
 
         elif path == "/status.txt":
             with cache_lock:
@@ -2061,6 +2256,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 config["display"]["show_data_source"] = "show_data_source" in params
                 config["display"]["show_last_updated"] = "show_last_updated" in params
                 config["display"]["show_vibe_board"] = "show_vibe_board" in params
+                if "layout_mode" in params:
+                    config["display"]["layout_mode"] = normalize_layout_mode(params["layout_mode"][0])
                 
                 # Save config
                 if save_config(config):

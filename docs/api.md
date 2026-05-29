@@ -16,6 +16,7 @@ http://localhost:8080
 | --- | --- | --- |
 | `GET` | `/` | Kindle 主看板，展示 Vibe Coding 状态和 Codex 用量。 |
 | `GET` | `/settings` | 浏览器设置页。 |
+| `GET` | `/layout?mode=auto\|portrait\|landscape` | 切换主看板布局模式，并重定向回首页。 |
 | `GET` | `/status.txt` | 纯文本状态摘要，适合旧 Kindle 浏览器、终端和监控脚本。 |
 | `GET` | `/presets.txt` | 纯文本内置状态包列表。 |
 
@@ -24,7 +25,16 @@ http://localhost:8080
 ```bash
 curl http://localhost:8080/status.txt
 curl http://localhost:8080/presets.txt
+curl 'http://localhost:8080/layout?mode=landscape'
 ```
+
+布局模式说明：
+
+| mode | 说明 |
+| --- | --- |
+| `auto` | 自动适配屏幕尺寸和方向。 |
+| `portrait` | 强制竖屏布局，适合窄屏常亮显示。 |
+| `landscape` | 强制横屏布局，适合 Kindle、旧手机或平板不能自动旋转时从网页端切换。 |
 
 ## JSON API
 
