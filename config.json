@@ -24,6 +24,7 @@
     "show_data_source": true,
     "show_last_updated": true,
     "show_vibe_board": true,
-    "layout_mode": "auto"
+    "layout_mode": "auto",
+    "text_scale_percent": 125
   }
 }

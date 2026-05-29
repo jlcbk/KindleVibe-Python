@@ -14,7 +14,7 @@
 - `GET /api/health` 健康检查接口。
 - `GET /api/presets` 返回内置状态包模板摘要和 payload。
 - 主看板、`/status.txt` 和 `/api/usage` 展示本机近 24 小时/近 7 天 Token 消耗及缓存命中率。
-- 主看板支持自动、竖屏、横屏三种布局模式，并提供 `GET /layout?mode=...` 网页端手动切换入口。
+- 主看板支持自动、竖屏、横屏三种布局模式，以及 80%-200% 字号缩放；`GET /layout?mode=...` 和 `GET /text-scale?scale=...` 会保存当前浏览器偏好。
 - 心跳/过期提示，并支持在设置页调整过期阈值。
 - 可选 `security.api_token` 写入鉴权。
 - `GET /api/config` 对已配置 token 脱敏。

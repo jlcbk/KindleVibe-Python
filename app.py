@@ -10,6 +10,7 @@ import subprocess
 import json
 import logging
 import sys
+from http.cookies import CookieError, SimpleCookie
 from datetime import datetime, timedelta, timezone
 from html import escape
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -73,6 +74,13 @@ LAYOUT_MODE_LABELS = {
     "portrait": "竖屏",
     "landscape": "横屏",
 }
+TEXT_SCALE_MIN = 80
+TEXT_SCALE_MAX = 200
+TEXT_SCALE_DEFAULT = 125
+TEXT_SCALE_QUICK_VALUES = (100, 125, 150)
+PREFERENCE_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
+LAYOUT_COOKIE = "kindlevibe_layout"
+TEXT_SCALE_COOKIE = "kindlevibe_text_scale"
 
 DEFAULT_CONFIG = {
     "server": {
@@ -100,7 +108,8 @@ DEFAULT_CONFIG = {
         "show_data_source": True,
         "show_last_updated": True,
         "show_vibe_board": True,
-        "layout_mode": "auto"
+        "layout_mode": "auto",
+        "text_scale_percent": TEXT_SCALE_DEFAULT
     }
 }
 
@@ -155,6 +164,22 @@ def normalize_layout_mode(value: Any) -> str:
 def current_layout_mode() -> str:
     """Return the configured dashboard layout mode."""
     return normalize_layout_mode(config.get("display", {}).get("layout_mode", "auto"))
+
+
+def normalize_text_scale(value: Any) -> int:
+    """Return a supported dashboard text scale percentage."""
+    try:
+        scale = int(value)
+    except (TypeError, ValueError):
+        scale = TEXT_SCALE_DEFAULT
+    return max(TEXT_SCALE_MIN, min(TEXT_SCALE_MAX, scale))
+
+
+def current_text_scale() -> int:
+    """Return the configured dashboard text scale percentage."""
+    return normalize_text_scale(
+        config.get("display", {}).get("text_scale_percent", TEXT_SCALE_DEFAULT)
+    )
 
 
 # Global config
@@ -895,7 +920,12 @@ def refresh_cache():
 # HTML Templates
 # ============================================================================
 
-def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
+def generate_main_html(
+    usage: CodexUsage,
+    vibe_status: Dict[str, Any],
+    layout_mode: Optional[str] = None,
+    text_scale_percent: Optional[int] = None,
+) -> str:
     """Generate main dashboard HTML."""
     def h(value: Any) -> str:
         return escape(str(value), quote=True)
@@ -949,6 +979,10 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         active_class = " active" if mode == layout_mode else ""
         return f'<a class="layout-option{active_class}" href="/layout?mode={h(mode)}">{h(LAYOUT_MODE_LABELS[mode])}</a>'
 
+    def text_scale_link(scale: int) -> str:
+        active_class = " active" if scale == text_scale_percent else ""
+        return f'<a class="layout-option{active_class}" href="/text-scale?scale={scale}">{scale}%</a>'
+
     token_24h = token_window("24h", 24)
     token_7d = token_window("7d", 24 * 7)
     five_hour_percent = percent(usage.five_hour_percent_left)
@@ -960,9 +994,15 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
     source = usage.source if usage.source else "未知"
     last_updated = usage.last_updated if usage.last_updated else "从未更新"
     refresh_ms = config.get("refresh", {}).get("auto_refresh_page_ms", 300000)
-    layout_mode = current_layout_mode()
+    layout_mode = normalize_layout_mode(layout_mode or current_layout_mode())
     layout_label = LAYOUT_MODE_LABELS.get(layout_mode, "自动")
+    text_scale_percent = normalize_text_scale(
+        text_scale_percent if text_scale_percent is not None else current_text_scale()
+    )
+    text_scale_ratio = text_scale_percent / 100
     layout_switch = "".join(layout_link(mode) for mode in LAYOUT_MODES)
+    text_scale_options = sorted(set(TEXT_SCALE_QUICK_VALUES + (text_scale_percent,)))
+    text_scale_switch = "".join(text_scale_link(scale) for scale in text_scale_options)
 
     display = config.get("display", {})
 
@@ -1079,6 +1119,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         }}
 
         body {{
+            --text-scale: 1;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: #ffffff;
             color: #000000;
@@ -1104,14 +1145,14 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         }}
 
         .header h1 {{
-            font-size: 44px;
+            font-size: calc(44px * var(--text-scale));
             line-height: 1;
             font-weight: 800;
         }}
 
         .subtitle {{
             margin-top: 8px;
-            font-size: 20px;
+            font-size: calc(20px * var(--text-scale));
             color: #333333;
         }}
 
@@ -1131,7 +1172,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             color: #ffffff;
             border: 2px solid #000000;
             padding: 9px 14px;
-            font-size: 18px;
+            font-size: calc(18px * var(--text-scale));
             text-decoration: none;
         }}
 
@@ -1147,7 +1188,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             color: #000000;
             padding: 9px 10px;
             border-right: 1px solid #000000;
-            font-size: 18px;
+            font-size: calc(18px * var(--text-scale));
             font-weight: 700;
             text-align: center;
             text-decoration: none;
@@ -1193,7 +1234,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         }}
 
         .panel h2 {{
-            font-size: 28px;
+            font-size: calc(28px * var(--text-scale));
             margin-bottom: 14px;
         }}
 
@@ -1213,7 +1254,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             text-align: center;
             border: 2px solid #000000;
             padding: 6px 12px;
-            font-size: 20px;
+            font-size: calc(20px * var(--text-scale));
             font-weight: 700;
             background: #eeeeee;
         }}
@@ -1232,7 +1273,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             text-align: center;
             border: 2px solid #000000;
             padding: 6px 12px;
-            font-size: 20px;
+            font-size: calc(20px * var(--text-scale));
             font-weight: 700;
         }}
 
@@ -1246,7 +1287,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         }}
 
         .main-objective {{
-            font-size: 30px;
+            font-size: calc(30px * var(--text-scale));
             font-weight: 800;
             margin-bottom: 16px;
             word-break: break-word;
@@ -1269,14 +1310,14 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
 
         .fact-label,
         .section-label {{
-            font-size: 15px;
+            font-size: calc(15px * var(--text-scale));
             color: #333333;
             font-weight: 700;
             margin-bottom: 6px;
         }}
 
         .fact-value {{
-            font-size: 22px;
+            font-size: calc(22px * var(--text-scale));
             font-weight: 700;
             word-break: break-word;
         }}
@@ -1293,7 +1334,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             min-height: 86px;
             border: 1px solid #000000;
             padding: 12px;
-            font-size: 24px;
+            font-size: calc(24px * var(--text-scale));
             font-weight: 700;
             word-break: break-word;
         }}
@@ -1303,14 +1344,14 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             border: 1px solid #000000;
             padding: 5px 9px;
             margin: 0 6px 6px 0;
-            font-size: 18px;
+            font-size: calc(18px * var(--text-scale));
             font-weight: 700;
             background: #f2f2f2;
         }}
 
         .muted {{
             color: #555555;
-            font-size: 18px;
+            font-size: calc(18px * var(--text-scale));
         }}
 
         .events {{
@@ -1326,13 +1367,13 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         }}
 
         .event-time {{
-            font-size: 16px;
+            font-size: calc(16px * var(--text-scale));
             color: #333333;
             font-weight: 700;
         }}
 
         .event-text {{
-            font-size: 20px;
+            font-size: calc(20px * var(--text-scale));
             font-weight: 700;
             word-break: break-word;
         }}
@@ -1347,12 +1388,12 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         }}
 
         .limit-label {{
-            font-size: 21px;
+            font-size: calc(21px * var(--text-scale));
             font-weight: 800;
         }}
 
         .limit-reset {{
-            font-size: 15px;
+            font-size: calc(15px * var(--text-scale));
             color: #333333;
             margin-top: 4px;
         }}
@@ -1370,7 +1411,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         }}
 
         .limit-percent {{
-            font-size: 23px;
+            font-size: calc(23px * var(--text-scale));
             font-weight: 800;
             text-align: right;
         }}
@@ -1393,20 +1434,20 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         .token-window,
         .token-value,
         .token-cache {{
-            font-size: 19px;
+            font-size: calc(19px * var(--text-scale));
             font-weight: 700;
             word-break: break-word;
         }}
 
         .token-value {{
-            font-size: 22px;
+            font-size: calc(22px * var(--text-scale));
             font-weight: 800;
         }}
 
         .token-note {{
             margin-top: 9px;
             color: #333333;
-            font-size: 15px;
+            font-size: calc(15px * var(--text-scale));
             font-weight: 700;
         }}
 
@@ -1420,7 +1461,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
 
         .info-label,
         .info-value {{
-            font-size: 20px;
+            font-size: calc(20px * var(--text-scale));
             font-weight: 700;
             word-break: break-word;
         }}
@@ -1429,7 +1470,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             border: 1px solid #000000;
             background: #f4f4f4;
             padding: 10px;
-            font-size: 19px;
+            font-size: calc(19px * var(--text-scale));
             font-weight: 700;
             word-break: break-word;
         }}
@@ -1440,7 +1481,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             padding-top: 12px;
             border-top: 3px solid #000000;
             color: #333333;
-            font-size: 16px;
+            font-size: calc(16px * var(--text-scale));
         }}
 
         .layout-landscape .dashboard-layout {{
@@ -1471,7 +1512,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             }}
 
             .header h1 {{
-                font-size: 34px;
+                font-size: calc(34px * var(--text-scale));
             }}
 
             .header-actions {{
@@ -1482,7 +1523,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
 
             .settings-btn,
             .layout-option {{
-                font-size: 16px;
+                font-size: calc(16px * var(--text-scale));
                 padding: 8px 10px;
             }}
 
@@ -1496,7 +1537,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             }}
 
             .main-objective {{
-                font-size: 24px;
+                font-size: calc(24px * var(--text-scale));
             }}
         }}
 
@@ -1520,7 +1561,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
 
             .layout-landscape .settings-btn,
             .layout-landscape .layout-option {{
-                font-size: 18px;
+                font-size: calc(18px * var(--text-scale));
                 padding: 9px 10px;
             }}
 
@@ -1547,13 +1588,16 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         }}
     </style>
 </head>
-<body class="layout-{h(layout_mode)}">
+<body class="layout-{h(layout_mode)}" style="--text-scale: {text_scale_ratio:.2f};">
     <header class="header">
         <h1>KindleVibe</h1>
-        <div class="subtitle">Vibe Coding 常亮状态面板 · {h(layout_label)}布局</div>
+        <div class="subtitle">Vibe Coding 常亮状态面板 · {h(layout_label)}布局 · {text_scale_percent}%字号</div>
         <div class="header-actions">
             <nav class="layout-switch" aria-label="布局模式">
                 {layout_switch}
+            </nav>
+            <nav class="layout-switch" aria-label="字号比例">
+                {text_scale_switch}
             </nav>
             <a href="/settings" class="settings-btn">设置</a>
         </div>
@@ -1623,7 +1667,12 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
     return html
 
 
-def generate_status_text(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
+def generate_status_text(
+    usage: CodexUsage,
+    vibe_status: Dict[str, Any],
+    layout_mode: Optional[str] = None,
+    text_scale_percent: Optional[int] = None,
+) -> str:
     """Generate a plain-text fallback view for old Kindle browsers and scripts."""
     def text(value: Any, fallback: str = "未指定") -> str:
         value = str(value).strip() if value is not None else ""
@@ -1663,12 +1712,19 @@ def generate_status_text(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
     heartbeat = "可能过期" if is_vibe_status_stale(vibe_status) else "正常"
     token_24h = token_window("24h", 24)
     token_7d = token_window("7d", 24 * 7)
-    layout_label = LAYOUT_MODE_LABELS.get(current_layout_mode(), "自动")
+    layout_label = LAYOUT_MODE_LABELS.get(
+        normalize_layout_mode(layout_mode or current_layout_mode()),
+        "自动",
+    )
+    text_scale_percent = normalize_text_scale(
+        text_scale_percent if text_scale_percent is not None else current_text_scale()
+    )
 
     lines = [
         "KindleVibe",
         "=" * 20,
         f"布局模式：{layout_label}",
+        f"字号比例：{text_scale_percent}%",
         f"状态：{text(vibe_status.get('state'), '待更新')}",
         f"目标：{text(vibe_status.get('objective'))}",
         f"项目：{text(vibe_status.get('project'))}",
@@ -1781,6 +1837,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
     show_updated = display.get("show_last_updated", True)
     show_vibe = display.get("show_vibe_board", True)
     layout_mode = normalize_layout_mode(display.get("layout_mode", "auto"))
+    text_scale_percent = normalize_text_scale(display.get("text_scale_percent", TEXT_SCALE_DEFAULT))
     
     def checked(val):
         return "checked" if val else ""
@@ -2037,6 +2094,12 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
                 </select>
                 <div class="help-text">自动模式按屏幕尺寸和方向适配；横屏模式会使用宽屏双栏布局，适合不能自动旋转的设备从网页端手动切换。</div>
             </div>
+
+            <div class="form-group">
+                <label for="text_scale_percent">默认字号比例（%）：</label>
+                <input type="number" id="text_scale_percent" name="text_scale_percent" value="{text_scale_percent}" min="{TEXT_SCALE_MIN}" max="{TEXT_SCALE_MAX}" step="5">
+                <div class="help-text">这是没有浏览器独立偏好时的默认字号；主页面顶部的 100% / 125% / 150% 会保存到当前浏览器，不影响其他终端。</div>
+            </div>
             
             <div class="form-group">
                 <label class="checkbox-label">
@@ -2116,6 +2179,44 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         query_token = parse_qs(parsed_path.query).get("token", [""])[0].strip()
         return tokens_match(expected, query_token)
+
+    def preference_cookies(self) -> SimpleCookie:
+        cookies = SimpleCookie()
+        try:
+            cookies.load(self.headers.get("Cookie", ""))
+        except CookieError:
+            return SimpleCookie()
+        return cookies
+
+    def display_preferences(self, parsed_path=None) -> Dict[str, Any]:
+        cookies = self.preference_cookies()
+        layout_mode = current_layout_mode()
+        text_scale_percent = current_text_scale()
+
+        if LAYOUT_COOKIE in cookies:
+            layout_mode = normalize_layout_mode(cookies[LAYOUT_COOKIE].value)
+        if TEXT_SCALE_COOKIE in cookies:
+            text_scale_percent = normalize_text_scale(cookies[TEXT_SCALE_COOKIE].value)
+
+        if parsed_path is not None:
+            query = parse_qs(parsed_path.query)
+            if "layout" in query:
+                layout_mode = normalize_layout_mode(query["layout"][0])
+            if "text_scale" in query:
+                text_scale_percent = normalize_text_scale(query["text_scale"][0])
+            elif "scale" in query:
+                text_scale_percent = normalize_text_scale(query["scale"][0])
+
+        return {
+            "layout_mode": layout_mode,
+            "text_scale_percent": text_scale_percent,
+        }
+
+    def send_preference_cookie(self, name: str, value: str):
+        self.send_header(
+            "Set-Cookie",
+            f"{name}={value}; Path=/; Max-Age={PREFERENCE_COOKIE_MAX_AGE}; SameSite=Lax"
+        )
     
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -2124,8 +2225,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/" or path == "/index.html":
             with cache_lock:
                 usage = usage_cache
-            
-            html = generate_main_html(usage, load_vibe_status())
+
+            preferences = self.display_preferences(parsed_path)
+            html = generate_main_html(
+                usage,
+                load_vibe_status(),
+                layout_mode=preferences["layout_mode"],
+                text_scale_percent=preferences["text_scale_percent"],
+            )
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_no_cache_headers()
@@ -2142,10 +2249,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         elif path == "/layout":
             requested = parse_qs(parsed_path.query).get("mode", ["auto"])[0]
-            config.setdefault("display", {})["layout_mode"] = normalize_layout_mode(requested)
-            save_config(config)
+            layout_mode = normalize_layout_mode(requested)
             self.send_response(303)
             self.send_header("Location", "/")
+            self.send_preference_cookie(LAYOUT_COOKIE, layout_mode)
+            self.send_no_cache_headers()
+            self.end_headers()
+
+        elif path == "/text-scale":
+            requested = parse_qs(parsed_path.query).get("scale", [TEXT_SCALE_DEFAULT])[0]
+            text_scale_percent = normalize_text_scale(requested)
+            self.send_response(303)
+            self.send_header("Location", "/")
+            self.send_preference_cookie(TEXT_SCALE_COOKIE, str(text_scale_percent))
             self.send_no_cache_headers()
             self.end_headers()
 
@@ -2153,7 +2269,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             with cache_lock:
                 usage = usage_cache
 
-            status_text = generate_status_text(usage, load_vibe_status())
+            preferences = self.display_preferences(parsed_path)
+            status_text = generate_status_text(
+                usage,
+                load_vibe_status(),
+                layout_mode=preferences["layout_mode"],
+                text_scale_percent=preferences["text_scale_percent"],
+            )
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.send_no_cache_headers()
@@ -2258,6 +2380,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 config["display"]["show_vibe_board"] = "show_vibe_board" in params
                 if "layout_mode" in params:
                     config["display"]["layout_mode"] = normalize_layout_mode(params["layout_mode"][0])
+                if "text_scale_percent" in params:
+                    config["display"]["text_scale_percent"] = normalize_text_scale(params["text_scale_percent"][0])
                 
                 # Save config
                 if save_config(config):

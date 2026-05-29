@@ -16,7 +16,8 @@ http://localhost:8080
 | --- | --- | --- |
 | `GET` | `/` | Kindle 主看板，展示 Vibe Coding 状态和 Codex 用量。 |
 | `GET` | `/settings` | 浏览器设置页。 |
-| `GET` | `/layout?mode=auto\|portrait\|landscape` | 切换主看板布局模式，并重定向回首页。 |
+| `GET` | `/layout?mode=auto\|portrait\|landscape` | 切换当前浏览器的主看板布局模式，并重定向回首页。 |
+| `GET` | `/text-scale?scale=100\|125\|150` | 切换当前浏览器的主看板字号比例，并重定向回首页。 |
 | `GET` | `/status.txt` | 纯文本状态摘要，适合旧 Kindle 浏览器、终端和监控脚本。 |
 | `GET` | `/presets.txt` | 纯文本内置状态包列表。 |
 
@@ -26,6 +27,7 @@ http://localhost:8080
 curl http://localhost:8080/status.txt
 curl http://localhost:8080/presets.txt
 curl 'http://localhost:8080/layout?mode=landscape'
+curl 'http://localhost:8080/text-scale?scale=150'
 ```
 
 布局模式说明：
@@ -35,6 +37,12 @@ curl 'http://localhost:8080/layout?mode=landscape'
 | `auto` | 自动适配屏幕尺寸和方向。 |
 | `portrait` | 强制竖屏布局，适合窄屏常亮显示。 |
 | `landscape` | 强制横屏布局，适合 Kindle、旧手机或平板不能自动旋转时从网页端切换。 |
+
+字号比例说明：
+
+- `/text-scale?scale=150` 会把当前浏览器的字号比例保存到 cookie，不会影响其他终端。
+- `/settings` 中的 `display.text_scale_percent` 是全局默认值，只在当前浏览器没有独立 cookie 时生效。
+- 如果旧设备 cookie 不稳定，可以把参数直接放到首页 URL，例如 `/?layout=landscape&text_scale=150`。
 
 ## JSON API
 
