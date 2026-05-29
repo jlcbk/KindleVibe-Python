@@ -10,7 +10,7 @@ import subprocess
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from html import escape
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -390,6 +390,7 @@ class CodexUsage:
         self.last_updated: str = ""
         self.source: str = ""  # "cli-rpc" or "session"
         self.error: str = ""
+        self.local_token_usage: Dict[str, Any] = default_local_token_usage()
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -401,8 +402,154 @@ class CodexUsage:
             "plan_type": self.plan_type,
             "source": self.source,
             "last_updated": self.last_updated,
-            "error": self.error
+            "error": self.error,
+            "local_token_usage": self.local_token_usage,
         }
+
+
+TOKEN_USAGE_FIELDS = [
+    "input_tokens",
+    "cached_input_tokens",
+    "output_tokens",
+    "reasoning_output_tokens",
+    "total_tokens",
+]
+
+
+def empty_token_window(hours: int) -> Dict[str, Any]:
+    return {
+        "window_hours": hours,
+        "input_tokens": 0,
+        "cached_input_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 0,
+        "cache_hit_percent": -1,
+        "event_count": 0,
+        "session_count": 0,
+        "first_seen": "",
+        "last_seen": "",
+    }
+
+
+def default_local_token_usage() -> Dict[str, Any]:
+    return {
+        "source": "codex-session-files",
+        "note": "本机 Codex 会话文件统计，不代表跨设备账户总量",
+        "last_scanned_at": "",
+        "windows": {
+            "24h": empty_token_window(24),
+            "7d": empty_token_window(24 * 7),
+        },
+    }
+
+
+def parse_codex_timestamp(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        text = str(value).replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def add_token_usage(window: Dict[str, Any], usage: Dict[str, Any], event_time: datetime, session_id: str):
+    for field in TOKEN_USAGE_FIELDS:
+        value = usage.get(field, 0)
+        if isinstance(value, (int, float)):
+            window[field] += int(value)
+    window["event_count"] += 1
+    window.setdefault("_sessions", set()).add(session_id)
+
+    display_time = event_time.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    if not window["first_seen"] or display_time < window["first_seen"]:
+        window["first_seen"] = display_time
+    if not window["last_seen"] or display_time > window["last_seen"]:
+        window["last_seen"] = display_time
+
+
+def finalize_token_window(window: Dict[str, Any]):
+    sessions = window.pop("_sessions", set())
+    window["session_count"] = len(sessions)
+    input_tokens = window.get("input_tokens", 0)
+    cached_tokens = window.get("cached_input_tokens", 0)
+    if input_tokens > 0:
+        window["cache_hit_percent"] = round(cached_tokens * 100 / input_tokens, 1)
+
+
+def compute_local_token_usage(
+    codex_home: Optional[Path] = None,
+    now: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    result = default_local_token_usage()
+    now_utc = now or datetime.now(timezone.utc)
+    if now_utc.tzinfo is None:
+        now_utc = now_utc.replace(tzinfo=timezone.utc)
+    now_utc = now_utc.astimezone(timezone.utc)
+    result["last_scanned_at"] = now_utc.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+
+    home = codex_home or (Path.home() / ".codex")
+    session_dirs = [
+        home / "sessions",
+        home / "archived_sessions",
+    ]
+    cutoffs = {
+        "24h": now_utc - timedelta(hours=24),
+        "7d": now_utc - timedelta(days=7),
+    }
+
+    for session_dir in session_dirs:
+        if not session_dir.exists():
+            continue
+        for session_file in session_dir.rglob("*.jsonl"):
+            try:
+                if datetime.fromtimestamp(session_file.stat().st_mtime, tz=timezone.utc) < cutoffs["7d"]:
+                    continue
+                with open(session_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        try:
+                            event = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if event.get("type") != "event_msg":
+                            continue
+                        payload = event.get("payload", {})
+                        if payload.get("type") != "token_count":
+                            continue
+                        event_time = parse_codex_timestamp(event.get("timestamp"))
+                        if not event_time:
+                            continue
+                        last_usage = payload.get("info", {}).get("last_token_usage", {})
+                        if not isinstance(last_usage, dict):
+                            continue
+                        for key, cutoff in cutoffs.items():
+                            if event_time >= cutoff:
+                                add_token_usage(
+                                    result["windows"][key],
+                                    last_usage,
+                                    event_time,
+                                    str(session_file),
+                                )
+            except Exception as e:
+                logger.warning(f"Error reading token usage from {session_file}: {e}")
+
+    for window in result["windows"].values():
+        finalize_token_window(window)
+    return result
+
+
+def attach_local_token_usage(usage: CodexUsage) -> CodexUsage:
+    try:
+        usage.local_token_usage = compute_local_token_usage()
+    except Exception as e:
+        logger.warning(f"Failed to compute local token usage: {e}")
+        usage.local_token_usage = default_local_token_usage()
+        usage.local_token_usage["error"] = str(e)
+    return usage
 
 
 def find_codex_binary() -> Optional[str]:
@@ -674,22 +821,22 @@ def fetch_codex_usage() -> CodexUsage:
         usage.source = "disabled"
         usage.last_updated = now_display()
         usage.error = "Codex 监控已关闭"
-        return usage
+        return attach_local_token_usage(usage)
 
     source = config.get("codex", {}).get("source", "auto")
     
     if source == "session":
-        return fetch_codex_status_session()
+        return attach_local_token_usage(fetch_codex_status_session())
     elif source == "cli":
-        return fetch_codex_status_cli()
+        return attach_local_token_usage(fetch_codex_status_cli())
     else:  # auto
         # Try CLI first
         usage = fetch_codex_status_cli()
         if not usage.error and (usage.five_hour_percent_left >= 0 or usage.weekly_percent_left >= 0):
-            return usage
+            return attach_local_token_usage(usage)
         
         logger.info("CLI fetch failed, falling back to session files")
-        return fetch_codex_status_session()
+        return attach_local_token_usage(fetch_codex_status_session())
 
 
 # ============================================================================
@@ -757,6 +904,31 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             return '<div class="muted">暂无事件</div>'
         return "".join(rows)
 
+    def token_window(name: str, hours: int) -> Dict[str, Any]:
+        local_usage = usage.local_token_usage if isinstance(usage.local_token_usage, dict) else {}
+        windows = local_usage.get("windows", {})
+        if not isinstance(windows, dict):
+            return empty_token_window(hours)
+        window = windows.get(name, {})
+        return window if isinstance(window, dict) else empty_token_window(hours)
+
+    def token_count(value: Any) -> str:
+        try:
+            return f"{int(value):,} tokens"
+        except (TypeError, ValueError):
+            return "0 tokens"
+
+    def cache_hit(value: Any) -> str:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return "暂无"
+        if number < 0:
+            return "暂无"
+        return f"{number:.1f}%"
+
+    token_24h = token_window("24h", 24)
+    token_7d = token_window("7d", 24 * 7)
     five_hour_percent = percent(usage.five_hour_percent_left)
     weekly_percent = percent(usage.weekly_percent_left)
     five_hour_reset = usage.five_hour_reset if usage.five_hour_reset else "未知"
@@ -1113,6 +1285,41 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             text-align: right;
         }}
 
+        .token-block {{
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 2px solid #000000;
+        }}
+
+        .token-row {{
+            display: grid;
+            grid-template-columns: 150px 1fr 180px;
+            gap: 12px;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid #cccccc;
+        }}
+
+        .token-window,
+        .token-value,
+        .token-cache {{
+            font-size: 19px;
+            font-weight: 700;
+            word-break: break-word;
+        }}
+
+        .token-value {{
+            font-size: 22px;
+            font-weight: 800;
+        }}
+
+        .token-note {{
+            margin-top: 9px;
+            color: #333333;
+            font-size: 15px;
+            font-weight: 700;
+        }}
+
         .info-row {{
             display: flex;
             justify-content: space-between;
@@ -1165,6 +1372,7 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             .focus-row,
             .tag-row,
             .limit-row,
+            .token-row,
             .event-row {{
                 grid-template-columns: 1fr;
             }}
@@ -1208,6 +1416,21 @@ def generate_main_html(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             </div>
             <div class="limit-percent">{weekly_percent}%</div>
         </div>
+
+        <div class="token-block">
+            <div class="section-label">本机 Token 消耗</div>
+            <div class="token-row">
+                <span class="token-window">近 24 小时</span>
+                <span class="token-value">{token_count(token_24h.get("total_tokens"))}</span>
+                <span class="token-cache">缓存命中 {cache_hit(token_24h.get("cache_hit_percent"))}</span>
+            </div>
+            <div class="token-row">
+                <span class="token-window">近 7 天</span>
+                <span class="token-value">{token_count(token_7d.get("total_tokens"))}</span>
+                <span class="token-cache">缓存命中 {cache_hit(token_7d.get("cache_hit_percent"))}</span>
+            </div>
+            <div class="token-note">Token 数来自本机 Codex 会话文件；额度百分比来自服务器侧 RPC。</div>
+        </div>
     </section>
 
     <section class="panel">
@@ -1238,10 +1461,35 @@ def generate_status_text(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
             return "未知"
         return f"{max(0, min(100, value))}%"
 
+    def token_window(name: str, hours: int) -> Dict[str, Any]:
+        local_usage = usage.local_token_usage if isinstance(usage.local_token_usage, dict) else {}
+        windows = local_usage.get("windows", {})
+        if not isinstance(windows, dict):
+            return empty_token_window(hours)
+        window = windows.get(name, {})
+        return window if isinstance(window, dict) else empty_token_window(hours)
+
+    def token_count(value: Any) -> str:
+        try:
+            return f"{int(value):,} tokens"
+        except (TypeError, ValueError):
+            return "0 tokens"
+
+    def cache_hit(value: Any) -> str:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return "暂无"
+        if number < 0:
+            return "暂无"
+        return f"{number:.1f}%"
+
     blockers = _as_text_list(vibe_status.get("blockers"))
     participants = _as_text_list(vibe_status.get("participants"))
     events = _as_event_list(vibe_status.get("events"))
     heartbeat = "可能过期" if is_vibe_status_stale(vibe_status) else "正常"
+    token_24h = token_window("24h", 24)
+    token_7d = token_window("7d", 24 * 7)
 
     lines = [
         "KindleVibe",
@@ -1274,6 +1522,9 @@ def generate_status_text(usage: CodexUsage, vibe_status: Dict[str, Any]) -> str:
         "Codex 用量：",
         f"- 5 小时额度剩余：{percent(usage.five_hour_percent_left)}，重置：{text(usage.five_hour_reset, '未知')}",
         f"- 周额度剩余：{percent(usage.weekly_percent_left)}，重置：{text(usage.weekly_reset, '未知')}",
+        f"- 本机 Token 消耗近 24 小时：{token_count(token_24h.get('total_tokens'))}，缓存命中：{cache_hit(token_24h.get('cache_hit_percent'))}",
+        f"- 本机 Token 消耗近 7 天：{token_count(token_7d.get('total_tokens'))}，缓存命中：{cache_hit(token_7d.get('cache_hit_percent'))}",
+        "- Token 数来自本机 Codex 会话文件；额度百分比来自服务器侧 RPC。",
         f"- 数据来源：{text(usage.source, '未知')}",
         f"- 用量更新时间：{text(usage.last_updated, '未知')}",
     ])
@@ -1730,7 +1981,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_no_cache_headers()
             self.end_headers()
-            self.wfile.write(json.dumps(usage.to_dict(), indent=2).encode("utf-8"))
+            self.wfile.write(json.dumps(usage.to_dict(), indent=2, ensure_ascii=False).encode("utf-8"))
 
         elif path == "/api/health":
             with cache_lock:

@@ -2,7 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -72,6 +72,10 @@ class VibeStatusTests(unittest.TestCase):
         usage.weekly_percent_left = 88
         usage.source = "session"
         usage.last_updated = "2026-05-29 01:30:00"
+        usage.local_token_usage["windows"]["24h"]["total_tokens"] = 12345
+        usage.local_token_usage["windows"]["24h"]["cache_hit_percent"] = 50.0
+        usage.local_token_usage["windows"]["7d"]["total_tokens"] = 23456
+        usage.local_token_usage["windows"]["7d"]["cache_hit_percent"] = 25.5
         status = app.normalize_vibe_status({
             "state": "测试中",
             "project": "KindleVibe-Python",
@@ -86,6 +90,8 @@ class VibeStatusTests(unittest.TestCase):
         self.assertIn("目标：提供纯文本兜底视图", text)
         self.assertIn("分支：status-text", text)
         self.assertIn("5 小时额度剩余：72%", text)
+        self.assertIn("本机 Token 消耗近 24 小时：12,345 tokens，缓存命中：50.0%", text)
+        self.assertIn("本机 Token 消耗近 7 天：23,456 tokens，缓存命中：25.5%", text)
         self.assertIn("- 01:30 生成 status.txt", text)
 
     def test_stale_status_detection(self):
@@ -110,6 +116,20 @@ class VibeStatusTests(unittest.TestCase):
 
         self.assertIn('http-equiv="refresh"', html)
         self.assertNotIn("setTimeout", html)
+
+    def test_main_html_displays_local_token_usage(self):
+        usage = app.CodexUsage()
+        usage.local_token_usage["windows"]["24h"]["total_tokens"] = 12345
+        usage.local_token_usage["windows"]["24h"]["cache_hit_percent"] = 50.0
+        usage.local_token_usage["windows"]["7d"]["total_tokens"] = 23456
+        usage.local_token_usage["windows"]["7d"]["cache_hit_percent"] = 25.5
+
+        html = app.generate_main_html(usage, app.default_vibe_status())
+
+        self.assertIn("本机 Token 消耗", html)
+        self.assertIn("12,345 tokens", html)
+        self.assertIn("缓存命中 50.0%", html)
+        self.assertIn("23,456 tokens", html)
 
     def test_settings_html_exposes_stale_threshold(self):
         html = app.generate_settings_html()
@@ -171,6 +191,70 @@ class VibeStatusTests(unittest.TestCase):
 
         self.assertEqual(safe["security"]["api_token"], "<configured>")
         self.assertEqual(app.config, original_config)
+
+    def test_compute_local_token_usage_sums_recent_last_usage(self):
+        codex_home = Path(self.tmpdir.name) / ".codex"
+        session_dir = codex_home / "sessions" / "2026" / "05"
+        session_dir.mkdir(parents=True)
+        archive_dir = codex_home / "archived_sessions"
+        archive_dir.mkdir(parents=True)
+        now = datetime(2026, 5, 29, 10, 0, 0, tzinfo=timezone.utc)
+
+        def token_event(timestamp: datetime, last_total: int, input_tokens: int, cached_tokens: int) -> dict:
+            return {
+                "timestamp": timestamp.isoformat().replace("+00:00", "Z"),
+                "type": "event_msg",
+                "payload": {
+                    "type": "token_count",
+                    "info": {
+                        "last_token_usage": {
+                            "input_tokens": input_tokens,
+                            "cached_input_tokens": cached_tokens,
+                            "output_tokens": last_total - input_tokens,
+                            "reasoning_output_tokens": 0,
+                            "total_tokens": last_total,
+                        },
+                        "total_token_usage": {
+                            "input_tokens": 999999,
+                            "cached_input_tokens": 999999,
+                            "output_tokens": 999999,
+                            "reasoning_output_tokens": 999999,
+                            "total_tokens": 999999,
+                        },
+                    },
+                },
+            }
+
+        recent_file = session_dir / "recent.jsonl"
+        with open(recent_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps(token_event(now - timedelta(hours=2), 30, 20, 10)) + "\n")
+            f.write("{invalid-json}\n")
+
+        week_file = archive_dir / "week.jsonl"
+        with open(week_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps(token_event(now - timedelta(days=3), 70, 80, 20)) + "\n")
+
+        old_file = session_dir / "old.jsonl"
+        with open(old_file, "w", encoding="utf-8") as f:
+            f.write(json.dumps(token_event(now - timedelta(days=8), 500, 500, 500)) + "\n")
+
+        usage = app.compute_local_token_usage(codex_home=codex_home, now=now)
+
+        window_24h = usage["windows"]["24h"]
+        self.assertEqual(window_24h["total_tokens"], 30)
+        self.assertEqual(window_24h["input_tokens"], 20)
+        self.assertEqual(window_24h["cached_input_tokens"], 10)
+        self.assertEqual(window_24h["cache_hit_percent"], 50.0)
+        self.assertEqual(window_24h["event_count"], 1)
+        self.assertEqual(window_24h["session_count"], 1)
+
+        window_7d = usage["windows"]["7d"]
+        self.assertEqual(window_7d["total_tokens"], 100)
+        self.assertEqual(window_7d["input_tokens"], 100)
+        self.assertEqual(window_7d["cached_input_tokens"], 30)
+        self.assertEqual(window_7d["cache_hit_percent"], 30.0)
+        self.assertEqual(window_7d["event_count"], 2)
+        self.assertEqual(window_7d["session_count"], 2)
 
 
 if __name__ == "__main__":

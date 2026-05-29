@@ -129,6 +129,28 @@ curl http://localhost:8080/api/health
 | `codex.source` | Codex 用量数据来源。 |
 | `codex.error` | Codex 数据错误信息。 |
 
+## Codex 用量
+
+```bash
+curl http://localhost:8080/api/usage
+```
+
+常用字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `five_hour_percent_left` | 5 小时额度剩余百分比。 |
+| `five_hour_reset` | 5 小时额度重置时间。 |
+| `weekly_percent_left` | 周额度剩余百分比。 |
+| `weekly_reset` | 周额度重置时间。 |
+| `source` | 额度数据来源，通常是 `cli-rpc` 或 `session`。 |
+| `local_token_usage.windows.24h.total_tokens` | 本机近 24 小时消耗 Token 数。 |
+| `local_token_usage.windows.24h.cache_hit_percent` | 本机近 24 小时缓存命中率。 |
+| `local_token_usage.windows.7d.total_tokens` | 本机近 7 天消耗 Token 数。 |
+| `local_token_usage.windows.7d.cache_hit_percent` | 本机近 7 天缓存命中率。 |
+
+`local_token_usage` 来自当前电脑的 Codex 会话文件，只代表本机消耗；额度百分比优先来自 Codex 服务器侧 RPC，适合观察同一账号的整体余量。
+
 ## 状态包模板
 
 读取 JSON 版本：

@@ -11,7 +11,7 @@ KindleVibe-Python 是一个面向 Kindle 浏览器的常亮状态面板，用来
 - **状态写入 API**：任意 agent、脚本或自动化流程都可以通过 `POST /api/vibe` 更新看板。
 - **纯文本兜底页**：`/status.txt` 提供不依赖 CSS/JS 的状态摘要，适合旧 Kindle 浏览器、终端和监控脚本。
 - **心跳/过期提示**：当状态长时间没有更新时，页面和纯文本端点会提示“可能过期”。
-- **Codex 用量监控**：优先通过 Codex CLI RPC 读取用量，失败后回退到本地会话文件。
+- **Codex 用量监控**：优先通过 Codex CLI RPC 读取账号额度百分比，失败后回退到本地会话文件；同时展示本机近 24 小时和近 7 天 Token 消耗、缓存命中率。
 - **自动刷新**：主看板使用 HTML `meta refresh` 按配置周期自动刷新，不依赖 JavaScript。
 - **禁用缓存**：主页面、纯文本页和 API 默认发送 no-cache 响应头，减少 Kindle 显示旧状态的概率。
 - **浏览器设置页**：可以在 `/settings` 中调整端口、刷新间隔、Codex 来源和显示内容。
@@ -294,6 +294,8 @@ make clear-events EVENT="开始新一轮状态记录。"
 ## 运行日志
 
 日志写入 `logs/kindlevibe.log`。如果 Codex 用量没有更新，先查看日志，再确认 Codex CLI 是否可用。
+
+主看板中的 5 小时/周额度百分比来自 Codex 服务器侧 RPC，能反映同一账号的整体余量。本机 Token 消耗来自当前电脑的 `~/.codex/sessions` 和 `~/.codex/archived_sessions` 会话文件，只统计这台机器最近 24 小时和最近 7 天的 `last_token_usage`，不代表跨设备总消耗。
 
 ## 开发验证
 
