@@ -1119,7 +1119,7 @@ def generate_main_html(
         }}
 
         body {{
-            --text-scale: 1;
+            --text-scale: {text_scale_ratio};
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: #ffffff;
             color: #000000;
