@@ -276,6 +276,13 @@ def display_flag(display: Dict[str, Any], key: str) -> bool:
     )
 
 
+def codex_enabled_flag(value: Any = None) -> bool:
+    """Return whether Codex usage fetching is enabled."""
+    if value is None:
+        value = config.get("codex", {}).get("enabled", True)
+    return config_bool(value, True)
+
+
 def display_status_board_enabled(display: Dict[str, Any]) -> bool:
     """Return the status-board display flag, accepting the legacy key."""
     if "show_status_board" in display:
@@ -890,7 +897,7 @@ def fetch_codex_status_session() -> CodexUsage:
 
 def fetch_codex_usage() -> CodexUsage:
     """Fetch Codex usage based on configured source."""
-    if not config.get("codex", {}).get("enabled", True):
+    if not codex_enabled_flag():
         usage = CodexUsage()
         usage.source = "disabled"
         usage.last_updated = now_display()
@@ -1923,7 +1930,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
     stale_after_seconds = status_stale_after_seconds()
     
     # Codex settings
-    codex_enabled = config.get("codex", {}).get("enabled", True)
+    codex_enabled = codex_enabled_flag()
     codex_source = config.get("codex", {}).get("source", "auto")
     session_limit = config.get("codex", {}).get("session_file_limit", 10)
     

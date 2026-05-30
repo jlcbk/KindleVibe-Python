@@ -585,6 +585,27 @@ class VibeStatusTests(unittest.TestCase):
         self.assertFalse(app.display_flag(display, "show_data_source"))
         self.assertFalse(app.display_flag(display, "show_last_updated"))
 
+    def test_codex_enabled_flag_parses_string_booleans(self):
+        self.assertFalse(app.codex_enabled_flag("false"))
+        self.assertFalse(app.codex_enabled_flag("0"))
+        self.assertTrue(app.codex_enabled_flag("true"))
+        self.assertTrue(app.codex_enabled_flag(None))
+
+    def test_fetch_codex_usage_honors_string_false_enabled_flag(self):
+        original_config = app.config
+        original_attach = app.attach_local_token_usage
+        try:
+            app.config = {"codex": {"enabled": "false"}}
+            app.attach_local_token_usage = lambda usage: usage
+
+            usage = app.fetch_codex_usage()
+        finally:
+            app.config = original_config
+            app.attach_local_token_usage = original_attach
+
+        self.assertEqual(usage.source, "disabled")
+        self.assertEqual(usage.error, "Codex 监控已关闭")
+
     def test_settings_page_uses_status_board_field_name(self):
         html = app.generate_settings_html()
         self.assertIn('name="show_status_board"', html)
