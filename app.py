@@ -140,11 +140,12 @@ def load_config() -> Dict[str, Any]:
             return migrate_config(merge_configs(DEFAULT_CONFIG, loaded_config), loaded_config)
         else:
             logger.info("Config file not found, creating default configuration")
-            save_config(DEFAULT_CONFIG)
-            return DEFAULT_CONFIG.copy()
+            default_config = copy.deepcopy(DEFAULT_CONFIG)
+            save_config(default_config)
+            return default_config
     except Exception as e:
         logger.error(f"Failed to load config: {e}, using defaults")
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
 
 
 def save_config(config: Dict[str, Any]) -> bool:
@@ -161,7 +162,7 @@ def save_config(config: Dict[str, Any]) -> bool:
 
 def merge_configs(default: Dict, override: Dict) -> Dict:
     """Deep merge override into default config."""
-    result = default.copy()
+    result = copy.deepcopy(default)
     for key, value in override.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = merge_configs(result[key], value)

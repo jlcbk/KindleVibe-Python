@@ -265,6 +265,31 @@ class VibeStatusTests(unittest.TestCase):
 
         self.assertEqual(merged["status"]["stale_after_seconds"], 2222)
 
+    def test_merge_configs_does_not_share_nested_defaults(self):
+        merged = app.merge_configs(app.DEFAULT_CONFIG, {
+            "display": {"show_credits": True},
+        })
+
+        merged["server"]["port"] = 9999
+        merged["display"]["layout_mode"] = "landscape"
+
+        self.assertEqual(app.DEFAULT_CONFIG["server"]["port"], 8080)
+        self.assertEqual(app.DEFAULT_CONFIG["display"]["layout_mode"], "auto")
+
+    def test_load_config_default_result_does_not_share_nested_defaults(self):
+        original_config_file = app.CONFIG_FILE
+        try:
+            app.CONFIG_FILE = Path(self.tmpdir.name) / "missing-config.json"
+
+            loaded = app.load_config()
+            loaded["server"]["port"] = 9999
+            loaded["display"]["layout_mode"] = "landscape"
+        finally:
+            app.CONFIG_FILE = original_config_file
+
+        self.assertEqual(app.DEFAULT_CONFIG["server"]["port"], 8080)
+        self.assertEqual(app.DEFAULT_CONFIG["display"]["layout_mode"], "auto")
+
     def test_setup_logging_does_not_duplicate_handlers(self):
         handler_count = len(app.logger.handlers)
         app.setup_logging()
