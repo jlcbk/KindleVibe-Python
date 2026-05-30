@@ -43,6 +43,9 @@ def setup_logging():
     logger = logging.getLogger("InkDash")
     logger.setLevel(logging.DEBUG)
     
+    if logger.handlers:
+        return logger
+    
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
@@ -245,26 +248,28 @@ def is_vibe_status_stale(status: Dict[str, Any], now: Optional[datetime] = None)
 
 def load_vibe_status() -> Dict[str, Any]:
     """Load the persisted vibe status from disk (new name first, legacy fallback)."""
-    status_file = STATUS_FILE if STATUS_FILE.exists() else STATUS_FILE_LEGACY
-    try:
-        if status_file.exists():
-            with open(status_file, "r", encoding="utf-8") as f:
-                return normalize_vibe_status(json.load(f))
-    except Exception as e:
-        logger.warning(f"Failed to load vibe status: {e}")
+    with status_lock:
+        status_file = STATUS_FILE if STATUS_FILE.exists() else STATUS_FILE_LEGACY
+        try:
+            if status_file.exists():
+                with open(status_file, "r", encoding="utf-8") as f:
+                    return normalize_vibe_status(json.load(f))
+        except Exception as e:
+            logger.warning(f"Failed to load vibe status: {e}")
     return default_vibe_status()
 
 
 def save_vibe_status(status: Dict[str, Any]) -> bool:
     """Persist vibe status to disk."""
-    try:
-        normalized = normalize_vibe_status(status)
-        with open(STATUS_FILE, "w", encoding="utf-8") as f:
-            json.dump(normalized, f, indent=2, ensure_ascii=False)
-        return True
-    except Exception as e:
-        logger.error(f"Failed to save vibe status: {e}")
-        return False
+    with status_lock:
+        try:
+            normalized = normalize_vibe_status(status)
+            with open(STATUS_FILE, "w", encoding="utf-8") as f:
+                json.dump(normalized, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save vibe status: {e}")
+            return False
 
 
 def update_vibe_status(patch: Dict[str, Any]) -> Dict[str, Any]:
@@ -775,6 +780,7 @@ def fetch_codex_usage() -> CodexUsage:
 
 usage_cache = CodexUsage()
 cache_lock = threading.Lock()
+status_lock = threading.Lock()
 last_fetch_time = 0
 fetch_count = 0
 
@@ -1535,27 +1541,6 @@ def generate_main_html(
             .layout-landscape .layout-option {{
                 font-size: {scaled(16)};
                 padding: 8px 10px;
-            }}
-
-            .layout-landscape .fact-grid {{
-                grid-template-columns: repeat(3, 1fr);
-            }}
-
-            .layout-landscape .focus-row,
-            .layout-landscape .tag-row {{
-                grid-template-columns: 1fr 1fr;
-            }}
-
-            .layout-landscape .limit-row {{
-                grid-template-columns: 180px 1fr 110px;
-            }}
-
-            .layout-landscape .token-row {{
-                grid-template-columns: 150px 1fr 180px;
-            }}
-
-            .layout-landscape .event-row {{
-                grid-template-columns: 180px 1fr;
             }}
         }}
     </style>
