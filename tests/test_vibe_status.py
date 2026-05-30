@@ -1,6 +1,8 @@
 import json
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -65,6 +67,43 @@ class VibeStatusTests(unittest.TestCase):
         })
 
         self.assertEqual(status["events"], [])
+
+    def test_update_vibe_status_serializes_read_modify_write(self):
+        original_merge = app.merge_status_patch
+        start = threading.Barrier(3)
+        errors = []
+
+        def slow_merge(status, patch):
+            if patch.get("event") in {"并发 A", "并发 B"}:
+                time.sleep(0.05)
+            return original_merge(status, patch)
+
+        def worker(event_text):
+            try:
+                start.wait(timeout=2)
+                app.update_vibe_status({"event": event_text})
+            except Exception as exc:
+                errors.append(exc)
+
+        app.merge_status_patch = slow_merge
+        threads = [
+            threading.Thread(target=worker, args=("并发 A",)),
+            threading.Thread(target=worker, args=("并发 B",)),
+        ]
+        try:
+            for thread in threads:
+                thread.start()
+            start.wait(timeout=2)
+            for thread in threads:
+                thread.join(timeout=2)
+        finally:
+            app.merge_status_patch = original_merge
+
+        self.assertFalse(errors)
+        self.assertTrue(all(not thread.is_alive() for thread in threads))
+        events = [event["text"] for event in app.load_vibe_status()["events"]]
+        self.assertIn("并发 A", events)
+        self.assertIn("并发 B", events)
 
     def test_generate_status_text_contains_vibe_and_usage_summary(self):
         usage = app.CodexUsage()

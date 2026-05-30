@@ -262,41 +262,52 @@ def is_vibe_status_stale(status: Dict[str, Any], now: Optional[datetime] = None)
     return is_status_stale(status, status_stale_after_seconds(), now)
 
 
+def _load_vibe_status_unlocked() -> Dict[str, Any]:
+    """Load persisted status while the caller owns status_lock."""
+    status_file = STATUS_FILE if STATUS_FILE.exists() else STATUS_FILE_LEGACY
+    try:
+        if status_file.exists():
+            with open(status_file, "r", encoding="utf-8") as f:
+                return normalize_vibe_status(json.load(f))
+    except Exception as e:
+        logger.warning(f"Failed to load vibe status: {e}")
+    return default_vibe_status()
+
+
 def load_vibe_status() -> Dict[str, Any]:
-    """Load the persisted vibe status from disk (new name first, legacy fallback)."""
+    """Load the persisted status from disk (new name first, legacy fallback)."""
     with status_lock:
-        status_file = STATUS_FILE if STATUS_FILE.exists() else STATUS_FILE_LEGACY
-        try:
-            if status_file.exists():
-                with open(status_file, "r", encoding="utf-8") as f:
-                    return normalize_vibe_status(json.load(f))
-        except Exception as e:
-            logger.warning(f"Failed to load vibe status: {e}")
-        return default_vibe_status()
+        return _load_vibe_status_unlocked()
+
+
+def _save_vibe_status_unlocked(status: Dict[str, Any]) -> bool:
+    """Persist status while the caller owns status_lock."""
+    try:
+        normalized = normalize_vibe_status(status)
+        with open(STATUS_FILE, "w", encoding="utf-8") as f:
+            json.dump(normalized, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save vibe status: {e}")
+        return False
 
 
 def save_vibe_status(status: Dict[str, Any]) -> bool:
-    """Persist vibe status to disk."""
+    """Persist status to disk."""
     with status_lock:
-        try:
-            normalized = normalize_vibe_status(status)
-            with open(STATUS_FILE, "w", encoding="utf-8") as f:
-                json.dump(normalized, f, indent=2, ensure_ascii=False)
-            return True
-        except Exception as e:
-            logger.error(f"Failed to save vibe status: {e}")
-            return False
+        return _save_vibe_status_unlocked(status)
 
 
 def update_vibe_status(patch: Dict[str, Any]) -> Dict[str, Any]:
-    """Merge an API patch into the current vibe status and persist it."""
+    """Merge an API patch into the current status and persist it atomically."""
     if not isinstance(patch, dict):
         raise ValueError("JSON body must be an object")
 
-    status = merge_status_patch(load_vibe_status(), patch)
-    if not save_vibe_status(status):
-        raise OSError("failed to save vibe status")
-    return load_vibe_status()
+    with status_lock:
+        status = merge_status_patch(_load_vibe_status_unlocked(), patch)
+        if not _save_vibe_status_unlocked(status):
+            raise OSError("failed to save vibe status")
+        return _load_vibe_status_unlocked()
 
 
 def load_vibe_presets() -> list:
@@ -796,7 +807,7 @@ def fetch_codex_usage() -> CodexUsage:
 
 usage_cache = CodexUsage()
 cache_lock = threading.Lock()
-status_lock = threading.Lock()
+status_lock = threading.RLock()
 last_fetch_time = 0
 fetch_count = 0
 
