@@ -5,6 +5,7 @@ InkDash: Dashboard for Codex usage and collaboration status on e-ink devices.
 
 import argparse
 import copy
+import hmac
 import re
 import subprocess
 import json
@@ -314,7 +315,7 @@ def public_config() -> Dict[str, Any]:
 
 def tokens_match(expected: str, supplied: str) -> bool:
     """Compare API tokens without accepting empty configured tokens."""
-    return bool(expected) and supplied == expected
+    return bool(expected) and hmac.compare_digest(str(expected), str(supplied))
 
 
 def redact_sensitive_url(value: str) -> str:
