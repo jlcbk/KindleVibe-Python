@@ -97,6 +97,7 @@ TEXT_SCALE_QUICK_VALUES = (100, 125, 150, 200)
 PREFERENCE_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
 LAYOUT_COOKIE = "inkdash_layout"
 TEXT_SCALE_COOKIE = "inkdash_text_scale"
+MAX_POST_BODY_BYTES = 1024 * 1024
 
 DEFAULT_CONFIG = {
     "server": {
@@ -282,6 +283,15 @@ def codex_enabled_flag(value: Any = None) -> bool:
     if value is None:
         value = config.get("codex", {}).get("enabled", True)
     return config_bool(value, True)
+
+
+def safe_content_length(value: Any, maximum: int = MAX_POST_BODY_BYTES) -> int:
+    """Return a bounded non-negative request body length."""
+    try:
+        length = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(maximum, length))
 
 
 def display_status_board_enabled(display: Dict[str, Any]) -> bool:
@@ -2453,7 +2463,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         path = parsed_path.path
 
         if path == "/settings":
-            content_length = int(self.headers.get("Content-Length", 0))
+            content_length = safe_content_length(self.headers.get("Content-Length"))
             post_data = self.rfile.read(content_length).decode("utf-8")
             params = parse_qs(post_data)
             
@@ -2518,7 +2528,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(html.encode("utf-8"))
 
         elif path in ("/api/vibe", "/api/status"):
-            content_length = int(self.headers.get("Content-Length", 0))
+            content_length = safe_content_length(self.headers.get("Content-Length"))
             raw_body = self.rfile.read(content_length).decode("utf-8")
             if not self.is_api_write_authorized(parsed_path):
                 self.send_json(401, {"error": "未授权：缺少或错误的 API token"})

@@ -592,6 +592,12 @@ class VibeStatusTests(unittest.TestCase):
         self.assertTrue(app.codex_enabled_flag("true"))
         self.assertTrue(app.codex_enabled_flag(None))
 
+    def test_safe_content_length_bounds_invalid_values(self):
+        self.assertEqual(app.safe_content_length("bad-value"), 0)
+        self.assertEqual(app.safe_content_length("-10"), 0)
+        self.assertEqual(app.safe_content_length("42"), 42)
+        self.assertEqual(app.safe_content_length(str(app.MAX_POST_BODY_BYTES + 1)), app.MAX_POST_BODY_BYTES)
+
     def test_fetch_codex_usage_honors_string_false_enabled_flag(self):
         original_config = app.config
         original_attach = app.attach_local_token_usage
