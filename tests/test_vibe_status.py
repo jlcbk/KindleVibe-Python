@@ -323,6 +323,16 @@ class VibeStatusTests(unittest.TestCase):
         self.assertFalse(app.tokens_match("secret", "wrong"))
         self.assertFalse(app.tokens_match("", "secret"))
 
+    def test_request_line_redacts_query_token_before_logging(self):
+        request_line = "POST /api/status?token=secret&event=ok&token=second HTTP/1.1"
+
+        redacted = app.redact_sensitive_request_line(request_line)
+
+        self.assertNotIn("secret", redacted)
+        self.assertNotIn("second", redacted)
+        self.assertIn("token=REDACTED", redacted)
+        self.assertIn("event=ok", redacted)
+
     def test_public_config_redacts_configured_api_token(self):
         original_config = app.config
         try:

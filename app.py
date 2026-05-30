@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from html import escape
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 import threading
 import time
 from typing import Optional, Dict, Any
@@ -240,6 +240,35 @@ def public_config() -> Dict[str, Any]:
 def tokens_match(expected: str, supplied: str) -> bool:
     """Compare API tokens without accepting empty configured tokens."""
     return bool(expected) and supplied == expected
+
+
+def redact_sensitive_url(value: str) -> str:
+    """Redact sensitive query parameters before logging request targets."""
+    parsed = urlparse(str(value))
+    if not parsed.query:
+        return str(value)
+
+    query_items = []
+    changed = False
+    for key, item_value in parse_qsl(parsed.query, keep_blank_values=True):
+        if key.lower() == "token":
+            query_items.append((key, "REDACTED"))
+            changed = True
+        else:
+            query_items.append((key, item_value))
+
+    if not changed:
+        return str(value)
+    return urlunparse(parsed._replace(query=urlencode(query_items, doseq=True)))
+
+
+def redact_sensitive_request_line(request_line: str) -> str:
+    """Redact sensitive query parameters from an HTTP request line."""
+    parts = str(request_line).split(" ", 2)
+    if len(parts) < 2:
+        return str(request_line)
+    parts[1] = redact_sensitive_url(parts[1])
+    return " ".join(parts)
 
 
 def status_stale_after_seconds() -> int:
@@ -2435,7 +2464,8 @@ class RequestHandler(BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
         """Override to use our logger."""
-        logger.debug(f"HTTP {args[0]}")
+        request_line = args[0] if args else ""
+        logger.debug("HTTP %s", redact_sensitive_request_line(str(request_line)))
 
 
 # ============================================================================
