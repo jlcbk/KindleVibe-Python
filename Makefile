@@ -2,7 +2,7 @@
 
 # Default port
 PORT ?= 8080
-URL ?= http://localhost:$(PORT)/api/vibe
+URL ?= http://localhost:$(PORT)/api/status
 PYTHON ?= python3
 EVENT ?=
 BLOCKER ?=
@@ -10,7 +10,7 @@ EVENT_ARG = $(if $(strip $(EVENT)),--event "$(EVENT)",)
 BLOCKER_ARG = $(if $(strip $(BLOCKER)),--blocker "$(BLOCKER)",)
 
 help:
-	@echo "InkDash - 墨板：电子墨水屏友好的 vibe coding 状态面板"
+	@echo "InkDash - 墨板：电子墨水屏友好的 Codex 用量与协作状态面板"
 	@echo ""
 	@echo "用法："
 	@echo "  make run             在 $(PORT) 端口启动服务"
@@ -49,7 +49,7 @@ test:
 	@codex /status 2>&1 || echo "错误：codex /status 执行失败"
 
 ci:
-	$(PYTHON) -m py_compile app.py vibe_update.py
+	$(PYTHON) -m py_compile app.py status_model.py vibe_update.py
 	$(PYTHON) -m unittest discover -s tests
 
 status:

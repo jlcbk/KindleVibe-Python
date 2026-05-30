@@ -1,6 +1,6 @@
 # InkDash（墨板）
 
-InkDash（墨板）是一个面向电子墨水屏浏览器（Kindle 等）的常亮状态面板，主要用来显示 **Codex 用量**——包括 5 小时/周额度比例、Token 消耗、缓存命中率——以及可选的 **Vibe Coding 状态看板**。
+InkDash（墨板）是一个面向电子墨水屏浏览器（Kindle 等）的常亮状态面板，主要用来显示 **Codex 用量**——包括 5 小时/周额度比例、Token 消耗、缓存命中率——以及可选的协作状态看板。
 
 这个版本只依赖 Python 标准库，适合在本机或局域网内运行，然后用 Kindle 打开页面作为低功耗状态屏。
 
@@ -8,8 +8,8 @@ InkDash（墨板）是一个面向电子墨水屏浏览器（Kindle 等）的常
 
 - **Kindle 友好**：黑白高对比、大字号、低动态效果，适合电子墨水屏。
 - **Codex 用量监控**：优先通过 Codex CLI RPC 读取账号额度百分比，失败后回退到本地会话文件；同时展示本机近 24 小时和近 7 天 Token 消耗、缓存命中率。
-- **Vibe Coding 看板（可选）**：展示当前目标、任务、下一步、协作者、阻塞项和最近事件。看板默认关闭，可在设置页中开启。
-- **状态写入 API**：任意 agent、脚本或自动化流程都可以通过 `POST /api/vibe` 或 `POST /api/status` 更新看板。
+- **协作状态看板（可选）**：展示当前目标、任务、下一步、协作者、阻塞项和最近事件。看板默认关闭，可在设置页中开启。
+- **状态写入 API**：任意 agent、脚本或自动化流程都可以通过 `POST /api/status` 更新看板；旧 `/api/vibe` 仍作为兼容别名保留。
 - **纯文本兜底页**：`/status.txt` 提供不依赖 CSS/JS 的状态摘要，适合旧 Kindle 浏览器、终端和监控脚本。
 - **心跳/过期提示**：当状态长时间没有更新时，页面和纯文本端点会提示"可能过期"。
 - **多分辨率/横屏布局**：支持自动、竖屏、横屏三种布局模式，以及 80%-200% 字号缩放；网页端快捷切换会保存为当前浏览器偏好，Kindle、旧手机、平板和电脑可以互不影响。
@@ -60,20 +60,20 @@ http://<你的局域网 IP>:8080
 
 如果要参与开发或交接 PR，先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## 更新 Vibe Coding 状态
+## 更新可选状态看板
 
-看板状态保存在本地 `vibe_status.json`，该文件属于运行时状态，不提交到 Git。可以参考 `vibe_status.example.json` 的结构。
+看板状态保存在本地 `inkdash_status.json`，该文件属于运行时状态，不提交到 Git。可以参考 `inkdash_status.example.json` 的结构；历史 `vibe_status.json` 仍会作为兼容回退读取。
 
 最小更新示例：
 
 ```bash
-curl -X POST http://localhost:8080/api/vibe \
+curl -X POST http://localhost:8080/api/status \
   -H 'Content-Type: application/json' \
   -d '{
     "state": "编码中",
      "project": "InkDash",
-    "branch": "feature/vibe-board",
-    "objective": "把 Kindle 变成 vibe coding 常亮状态屏",
+	    "branch": "feature/status-board",
+	    "objective": "把 Kindle 变成常亮状态屏",
     "current_task": "实现通用状态写入接口",
     "next_action": "运行测试并交给 GitHub 协作 agent 发 PR",
     "participants": ["@scnet_brain", "@opencode"],
@@ -85,7 +85,7 @@ curl -X POST http://localhost:8080/api/vibe \
 读取当前状态：
 
 ```bash
-curl http://localhost:8080/api/vibe
+curl http://localhost:8080/api/status
 ```
 
 也可以使用随项目提供的标准库 CLI 工具，避免每次手写 curl：
@@ -95,7 +95,7 @@ python3 vibe_update.py \
   --state 编码中 \
   --project InkDash \
   --branch feature/vibe-board \
-  --objective "把 Kindle 变成 vibe coding 常亮状态屏" \
+  --objective "把 Kindle 变成常亮协作状态屏" \
   --current-task "补充 CLI 状态写入工具" \
   --next-action "运行测试并交给 GitHub 协作 agent 发 PR" \
   --participant @scnet_brain \
@@ -106,7 +106,7 @@ python3 vibe_update.py \
 如果 InkDash 不在本机 8080 端口，可以用环境变量设置默认 API 地址：
 
 ```bash
-export INKDASH_URL=http://192.168.1.20:8080/api/vibe
+export INKDASH_URL=http://192.168.1.20:8080/api/status
 python3 vibe_update.py --heartbeat
 ```
 
@@ -185,7 +185,7 @@ python3 vibe_update.py --from-git --cwd /path/to/repo --heartbeat
 从 JSON 状态包读取，再用命令行参数覆盖其中部分字段：
 
 ```bash
-python3 vibe_update.py --payload-file vibe_status.example.json --state 等待评审
+python3 vibe_update.py --payload-file inkdash_status.example.json --state 等待评审
 ```
 
 仓库内置了几组可复用状态包，可以直接作为自动化脚本模板：
@@ -272,7 +272,7 @@ make clear-events EVENT="开始新一轮状态记录。"
     "api_token": ""
   },
   "display": {
-    "show_vibe_board": false,
+    "show_status_board": false,
     "show_credits": false,
     "show_plan_type": true,
     "show_data_source": false,
@@ -291,10 +291,10 @@ make clear-events EVENT="开始新一轮状态记录。"
 - `GET /settings`：设置页。
 - `GET /layout?mode=auto|portrait|landscape`：切换当前浏览器的主看板布局模式，并返回首页。
 - `GET /text-scale?scale=100|125|150|200`：切换当前浏览器的字号比例，并返回首页。
-- `GET /api/vibe`：读取 vibe coding 状态。
-- `POST /api/vibe`：更新 vibe coding 状态。
-- `GET /api/status`：读取状态（`/api/vibe` 别名）。
-- `POST /api/status`：更新状态（`/api/vibe` 别名）。
+- `GET /api/status`：读取可选状态看板内容。
+- `POST /api/status`：更新可选状态看板内容。
+- `GET /api/vibe`：读取状态的兼容别名，供旧脚本使用。
+- `POST /api/vibe`：更新状态的兼容别名，供旧脚本使用。
 - `GET /api/health`：健康检查，返回服务状态、vibe 状态是否过期、Codex 数据是否报错。
 - `GET /api/presets`：读取内置状态包模板摘要和原始 payload。
 - `GET /api/usage`：读取 Codex 用量。
@@ -311,7 +311,7 @@ make clear-events EVENT="开始新一轮状态记录。"
 本仓库的 GitHub Actions 会在 push 和 pull request 上运行：
 
 ```bash
-python -m py_compile app.py vibe_update.py
+python -m py_compile app.py status_model.py vibe_update.py
 python -m unittest discover -s tests
 ```
 

@@ -23,7 +23,7 @@
     "show_plan_type": true,
     "show_data_source": false,
     "show_last_updated": true,
-    "show_vibe_board": false,
+    "show_status_board": false,
     "layout_mode": "auto",
     "text_scale_percent": 125
   }

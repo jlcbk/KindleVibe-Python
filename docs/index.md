@@ -55,7 +55,7 @@ make health
 make presets
 ```
 
-切换到常见 vibe coding 状态：
+切换到常见协作状态：
 
 ```bash
 make preset-coding EVENT="开始编码。"

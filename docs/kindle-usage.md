@@ -1,6 +1,6 @@
 # InkDash 使用指南
 
-这份指南面向把 Kindle 当作常亮 vibe coding 状态屏的日常使用场景。
+这份指南面向把 Kindle 当作 Codex 用量和协作状态常亮屏的日常使用场景。
 
 ## 启动服务
 
@@ -145,7 +145,7 @@ python3 vibe_update.py \
 如果服务不在本机 8080 端口，可以设置环境变量：
 
 ```bash
-export INKDASH_URL=http://192.168.1.20:8080/api/vibe
+export INKDASH_URL=http://192.168.1.20:8080/api/status
 python3 vibe_update.py --heartbeat
 ```
 
@@ -179,7 +179,7 @@ make preset-done EVENT="本轮任务已完成。"
 python3 vibe_update.py --payload-file status.json --event "自动化任务完成。"
 ```
 
-`status.json` 可以参考仓库里的 `vibe_status.example.json`。
+`status.json` 可以参考仓库里的 `inkdash_status.example.json`。
 
 仓库也提供了常见状态包模板，可以直接复用：
 
@@ -289,14 +289,14 @@ http://localhost:8080/api/health
 
 ### Codex 用量显示未知
 
-Codex 用量依赖本机 Codex CLI 或本地会话文件。如果只想使用 vibe coding 看板，可以在 `/settings` 中关闭 Codex 监控。
+Codex 用量依赖本机 Codex CLI 或本地会话文件。如果只想使用可选状态看板，可以在 `/settings` 中关闭 Codex 监控。
 
 ### CLI 连接不上服务
 
-确认 `INKDASH_URL` 或 `--url` 指向 `/api/vibe`：
+确认 `INKDASH_URL` 或 `--url` 指向 `/api/status`：
 
 ```bash
-python3 vibe_update.py --url http://127.0.0.1:8080/api/vibe --health
+python3 vibe_update.py --url http://127.0.0.1:8080/api/status --health
 ```
 
 ### 写入状态返回 401

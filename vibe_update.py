@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-把 vibe coding 状态写入 InkDash 的小工具。
+把协作状态写入 InkDash 的小工具。
 """
 
 import argparse
@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 from urllib import error, request
 
 
-DEFAULT_URL = "http://localhost:8080/api/vibe"
+DEFAULT_URL = "http://localhost:8080/api/status"
 PRESET_NAMES = ("coding", "review", "blocked", "done")
 PRESET_DIR = Path(__file__).resolve().parent / "examples" / "payloads"
 
@@ -35,7 +35,7 @@ def default_token() -> str:
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="读取或更新 InkDash 的 vibe coding 状态"
+        description="读取或更新 InkDash 的协作状态"
     )
     parser.add_argument(
         "--url",
@@ -304,6 +304,8 @@ def derive_health_url(url: str) -> str:
     url = url.rstrip("/")
     if url.endswith("/api/vibe"):
         return url[:-len("/api/vibe")] + "/api/health"
+    if url.endswith("/api/status"):
+        return url[:-len("/api/status")] + "/api/health"
     if url.endswith("/api/health"):
         return url
     return url + "/api/health"

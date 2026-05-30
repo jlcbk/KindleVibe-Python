@@ -1,13 +1,13 @@
 # 自动化接入示例
 
-这份文档给 vibe coding 过程中的脚本和 agent 提供可直接套用的状态更新配方。所有示例都只依赖仓库内置的 `vibe_update.py` 和 Makefile。
+这份文档给协作开发过程中的脚本和 agent 提供可直接套用的状态更新配方。所有示例都只依赖仓库内置的 `vibe_update.py` 和 Makefile。
 
 ## 基础环境变量
 
 如果 InkDash 运行在另一台电脑上，先设置 API 地址：
 
 ```bash
-export INKDASH_URL=http://192.168.1.20:8080/api/vibe
+export INKDASH_URL=http://192.168.1.20:8080/api/status
 ```
 
 如果服务端配置了写入 token：

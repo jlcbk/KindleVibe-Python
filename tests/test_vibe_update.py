@@ -160,6 +160,12 @@ class VibeUpdateTests(unittest.TestCase):
 
         self.assertEqual(args.url, "http://kindle.local/api/vibe")
 
+    def test_default_url_prefers_status_endpoint(self):
+        with patch.dict(vibe_update.os.environ, {}, clear=True):
+            args = vibe_update.parse_args([])
+
+        self.assertEqual(args.url, "http://localhost:8080/api/status")
+
     def test_default_token_can_come_from_environment(self):
         with patch.dict(vibe_update.os.environ, {"INKDASH_TOKEN": "secret"}):
             args = vibe_update.parse_args([])
@@ -169,6 +175,10 @@ class VibeUpdateTests(unittest.TestCase):
     def test_derive_health_url_from_vibe_url(self):
         self.assertEqual(
             vibe_update.derive_health_url("http://localhost:8080/api/vibe"),
+            "http://localhost:8080/api/health",
+        )
+        self.assertEqual(
+            vibe_update.derive_health_url("http://localhost:8080/api/status"),
             "http://localhost:8080/api/health",
         )
         self.assertEqual(

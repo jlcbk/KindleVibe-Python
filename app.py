@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-InkDash: Dashboard for vibe coding status on e-ink / Kindle devices.
+InkDash: Dashboard for Codex usage and collaboration status on e-ink devices.
 """
 
 import argparse
@@ -19,6 +19,19 @@ from urllib.parse import parse_qs, urlparse
 import threading
 import time
 from typing import Optional, Dict, Any
+
+from status_model import (
+    MAX_EVENT_ITEMS,
+    clean_text as _as_clean_text,
+    default_status as default_vibe_status,
+    event_list as _as_event_list,
+    is_status_stale,
+    merge_status_patch,
+    normalize_status as normalize_vibe_status,
+    now_display,
+    parse_display_time,
+    text_list as _as_text_list,
+)
 
 
 # ============================================================================
@@ -68,7 +81,6 @@ STATUS_FILE = Path(__file__).parent / "inkdash_status.json"
 STATUS_FILE_LEGACY = Path(__file__).parent / "vibe_status.json"
 PRESET_DIR = Path(__file__).parent / "examples" / "payloads"
 PRESET_NAMES = ("coding", "review", "blocked", "done")
-MAX_EVENT_ITEMS = 8
 LAYOUT_MODES = ("auto", "portrait", "landscape")
 LAYOUT_MODE_LABELS = {
     "auto": "自动",
@@ -108,7 +120,7 @@ DEFAULT_CONFIG = {
         "show_plan_type": True,
         "show_data_source": False,
         "show_last_updated": True,
-        "show_vibe_board": False,
+        "show_status_board": False,
         "layout_mode": "auto",
         "text_scale_percent": TEXT_SCALE_DEFAULT
     }
@@ -183,12 +195,19 @@ def current_text_scale() -> int:
     )
 
 
+def display_status_board_enabled(display: Dict[str, Any]) -> bool:
+    """Return the status-board display flag, accepting the legacy key."""
+    if "show_status_board" in display:
+        return bool(display.get("show_status_board"))
+    return bool(display.get("show_vibe_board", True))
+
+
 # Global config
 config = load_config()
 
 
 # ============================================================================
-# Vibe Coding Status
+# Collaboration Status
 # ============================================================================
 
 def configured_api_token() -> str:
@@ -209,10 +228,6 @@ def tokens_match(expected: str, supplied: str) -> bool:
     """Compare API tokens without accepting empty configured tokens."""
     return bool(expected) and supplied == expected
 
-def now_display() -> str:
-    """Return a local timestamp for Kindle display and API payloads."""
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
 
 def vibe_stale_after_seconds() -> int:
     """Return the heartbeat freshness threshold."""
@@ -223,112 +238,9 @@ def vibe_stale_after_seconds() -> int:
         return 900
 
 
-def parse_display_time(value: Any) -> Optional[datetime]:
-    """Parse the local display timestamp used by vibe status records."""
-    try:
-        return datetime.strptime(str(value), "%Y-%m-%d %H:%M:%S")
-    except (TypeError, ValueError):
-        return None
-
-
 def is_vibe_status_stale(status: Dict[str, Any], now: Optional[datetime] = None) -> bool:
     """Return true when the displayed status has not been updated recently."""
-    updated_at = parse_display_time(status.get("updated_at"))
-    if not updated_at:
-        return False
-
-    now = now or datetime.now()
-    age_seconds = (now - updated_at).total_seconds()
-    return age_seconds > vibe_stale_after_seconds()
-
-
-def default_vibe_status() -> Dict[str, Any]:
-    """Build the default status shown before an agent/script writes updates."""
-    timestamp = now_display()
-    return {
-        "title": "Vibe Coding 看板",
-        "state": "待更新",
-        "project": "未指定项目",
-        "branch": "未指定分支",
-        "objective": "等待 agent 或脚本写入当前目标。",
-        "current_task": "暂无正在展示的任务。",
-        "next_action": "通过 POST /api/vibe 或 /api/status 写入最新状态。",
-        "blockers": [],
-        "participants": [],
-        "updated_at": timestamp,
-        "events": [
-            {
-                "time": timestamp,
-                "text": "InkDash 已启动，等待 vibe coding 状态更新。"
-            }
-        ]
-    }
-
-
-def _as_clean_text(value: Any, fallback: str = "") -> str:
-    text = str(value).strip() if value is not None else ""
-    return text if text else fallback
-
-
-def _as_text_list(value: Any) -> list:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return [_as_clean_text(item) for item in value if _as_clean_text(item)]
-    text = _as_clean_text(value)
-    return [text] if text else []
-
-
-def _as_event_list(value: Any) -> list:
-    if not isinstance(value, list):
-        return []
-
-    events = []
-    for item in value:
-        if isinstance(item, dict):
-            text = _as_clean_text(item.get("text"))
-            if not text:
-                continue
-            events.append({
-                "time": _as_clean_text(item.get("time"), now_display()),
-                "text": text
-            })
-        else:
-            text = _as_clean_text(item)
-            if text:
-                events.append({"time": now_display(), "text": text})
-
-    return events[-MAX_EVENT_ITEMS:]
-
-
-def normalize_vibe_status(raw: Any) -> Dict[str, Any]:
-    """Normalize status data so rendering and API output stay predictable."""
-    status = default_vibe_status()
-    if not isinstance(raw, dict):
-        return status
-
-    text_fields = [
-        "title",
-        "state",
-        "project",
-        "branch",
-        "objective",
-        "current_task",
-        "next_action",
-        "updated_at",
-    ]
-    for field in text_fields:
-        if field in raw:
-            status[field] = _as_clean_text(raw.get(field), status[field])
-
-    for field in ("blockers", "participants"):
-        if field in raw:
-            status[field] = _as_text_list(raw.get(field))
-
-    if "events" in raw:
-        status["events"] = _as_event_list(raw.get("events"))
-
-    return status
+    return is_status_stale(status, vibe_stale_after_seconds(), now)
 
 
 def load_vibe_status() -> Dict[str, Any]:
@@ -360,34 +272,7 @@ def update_vibe_status(patch: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(patch, dict):
         raise ValueError("JSON body must be an object")
 
-    status = load_vibe_status()
-    text_fields = [
-        "title",
-        "state",
-        "project",
-        "branch",
-        "objective",
-        "current_task",
-        "next_action",
-    ]
-    for field in text_fields:
-        if field in patch:
-            status[field] = _as_clean_text(patch.get(field), status[field])
-
-    for field in ("blockers", "participants"):
-        if field in patch:
-            status[field] = _as_text_list(patch.get(field))
-
-    if "events" in patch:
-        status["events"] = _as_event_list(patch.get("events"))
-
-    event_text = _as_clean_text(patch.get("event"))
-    if event_text:
-        status.setdefault("events", [])
-        status["events"].append({"time": now_display(), "text": event_text})
-        status["events"] = status["events"][-MAX_EVENT_ITEMS:]
-
-    status["updated_at"] = now_display()
+    status = merge_status_patch(load_vibe_status(), patch)
     if not save_vibe_status(status):
         raise OSError("failed to save vibe status")
     return load_vibe_status()
@@ -1012,7 +897,7 @@ def generate_main_html(
     display = config.get("display", {})
 
     vibe_board = ""
-    if display.get("show_vibe_board", True):
+    if display_status_board_enabled(display):
         blockers = _as_text_list(vibe_status.get("blockers"))
         participants = _as_text_list(vibe_status.get("participants"))
         events = _as_event_list(vibe_status.get("events"))
@@ -1022,7 +907,7 @@ def generate_main_html(
         vibe_board = f'''
     <section class="panel vibe-panel">
         <div class="panel-title-row">
-            <h2>{h(vibe_status.get("title", "Vibe Coding 看板"))}</h2>
+            <h2>{h(vibe_status.get("title", "状态看板"))}</h2>
             <div class="pill-group">
                 <span class="state-pill">{h(vibe_status.get("state", "待更新"))}</span>
                 <span class="{heartbeat_class}">{heartbeat_label}</span>
@@ -1678,7 +1563,7 @@ def generate_main_html(
 <body class="layout-{h(layout_mode)}" style="--text-scale: {text_scale_ratio:.2f};">
     <header class="header">
         <h1>InkDash</h1>
-        <div class="subtitle">Vibe Coding 常亮状态面板 · {h(layout_label)}布局 · {text_scale_percent}%字号</div>
+        <div class="subtitle">Codex 用量常亮状态面板 · {h(layout_label)}布局 · {text_scale_percent}%字号</div>
         <div class="header-actions">
             <nav class="layout-switch" aria-label="布局模式">
                 {layout_switch}
@@ -1922,7 +1807,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
     show_plan = display.get("show_plan_type", True)
     show_source = display.get("show_data_source", True)
     show_updated = display.get("show_last_updated", True)
-    show_vibe = display.get("show_vibe_board", True)
+    show_status = display_status_board_enabled(display)
     layout_mode = normalize_layout_mode(display.get("layout_mode", "auto"))
     text_scale_percent = normalize_text_scale(display.get("text_scale_percent", TEXT_SCALE_DEFAULT))
     text_scale_ratio = text_scale_percent / 100.0
@@ -2166,7 +2051,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
         </div>
 
         <div class="settings-section">
-            <h2>Vibe Coding 设置</h2>
+            <h2>状态看板设置</h2>
             
             <div class="form-group">
                 <label for="stale_after_seconds">状态过期阈值（秒）：</label>
@@ -2196,8 +2081,8 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
             
             <div class="form-group">
                 <label class="checkbox-label">
-                    <input type="checkbox" name="show_vibe_board" {"checked" if show_vibe else ""}>
-                    显示 Vibe Coding 看板
+                    <input type="checkbox" name="show_status_board" {"checked" if show_status else ""}>
+                    显示状态看板
                 </label>
             </div>
             
@@ -2472,7 +2357,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                 config["display"]["show_credits"] = "show_credits" in params
                 config["display"]["show_data_source"] = "show_data_source" in params
                 config["display"]["show_last_updated"] = "show_last_updated" in params
-                config["display"]["show_vibe_board"] = "show_vibe_board" in params
+                show_status_board = "show_status_board" in params or "show_vibe_board" in params
+                config["display"]["show_status_board"] = show_status_board
+                config["display"].pop("show_vibe_board", None)
                 if "layout_mode" in params:
                     config["display"]["layout_mode"] = normalize_layout_mode(params["layout_mode"][0])
                 if "text_scale_percent" in params:
@@ -2528,7 +2415,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 def parse_args(argv=None):
     """Parse command-line overrides for local development."""
     parser = argparse.ArgumentParser(
-        description="Kindle 友好的 Vibe Coding 常亮状态面板"
+        description="Kindle 友好的 Codex 用量常亮状态面板"
     )
     parser.add_argument("--port", type=int, help="覆盖 config.json 中的服务端口")
     parser.add_argument("--host", help="覆盖 config.json 中的监听地址")

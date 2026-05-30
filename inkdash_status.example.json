@@ -1,0 +1,25 @@
+{
+  "title": "状态看板",
+  "state": "编码中",
+  "project": "InkDash",
+  "branch": "feature/status-board",
+  "objective": "把电子墨水屏变成常亮的 Codex 用量和协作状态屏。",
+  "current_task": "实现通用状态写入接口和 Kindle 友好的状态面板。",
+  "next_action": "运行本地测试，并把修改交给 GitHub 协作 agent 发 PR。",
+  "blockers": [],
+  "participants": [
+    "@scnet_brain",
+    "@opencode"
+  ],
+  "updated_at": "2026-05-29 01:00:00",
+  "events": [
+    {
+      "time": "2026-05-29 00:30:00",
+      "text": "读取当前 Python 仓库和 Go 参考仓库。"
+    },
+    {
+      "time": "2026-05-29 01:00:00",
+      "text": "添加 /api/status 状态写入接口。"
+    }
+  ]
+}

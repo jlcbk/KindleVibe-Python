@@ -12,11 +12,12 @@
 - Cookie 名 `inkdash_layout` / `inkdash_text_scale` 替代 `kindlevibe_layout` / `kindlevibe_text_scale`。
 - 示例 systemd 单元和 launchd plist 改为 `examples/systemd/inkdash.service` / `examples/launchd/com.inkdash.plist`。
 - 日志文件路径改为 `logs/inkdash.log`。
+- 状态文件主路径改为 `inkdash_status.json`，历史 `vibe_status.json` 作为兼容回退读取。
 
 ### 新增
 
 - Kindle 友好的 Vibe Coding 主看板，展示目标、项目、分支、当前任务、下一步、参与者、阻塞项和最近事件。
-- `GET /api/vibe` / `POST /api/vibe` 状态读取与写入接口。
+- `GET /api/status` / `POST /api/status` 状态读取与写入接口，旧 `/api/vibe` 继续作为兼容别名。
 - `vibe_update.py` CLI，支持状态写入、心跳、健康检查、等待健康检查、JSON 输出、从 Git 自动填充上下文、从 JSON 状态包读取、环境变量配置 URL/token。
 - `GET /status.txt` 纯文本兜底页。
 - `GET /presets.txt` 纯文本内置状态包列表。
@@ -29,6 +30,7 @@
 - `GET /api/config` 对已配置 token 脱敏。
 - `vibe_update.py` 支持显式清空阻塞项、参与者和最近事件。
 - `examples/payloads/` 提供编码中、等待评审、被阻塞和已完成状态包模板。
+- `status_model.py` 承载纯状态模型逻辑，为后续继续拆分 `app.py` 做低风险准备。
 - `vibe_update.py --preset` 可以直接读取内置状态包模板。
 - `vibe_update.py --list-presets` 可以列出内置状态包模板摘要。
 - 主页面使用 `meta refresh` 自动刷新，不依赖 JavaScript。

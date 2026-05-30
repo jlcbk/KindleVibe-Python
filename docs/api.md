@@ -14,10 +14,10 @@ http://localhost:8080
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
-| `GET` | `/` | Kindle 主看板，展示 Vibe Coding 状态和 Codex 用量。 |
+| `GET` | `/` | Kindle 主看板，展示 Codex 用量和可选状态看板。 |
 | `GET` | `/settings` | 浏览器设置页。 |
 | `GET` | `/layout?mode=auto\|portrait\|landscape` | 切换当前浏览器的主看板布局模式，并重定向回首页。 |
-| `GET` | `/text-scale?scale=100\|125\|150` | 切换当前浏览器的主看板字号比例，并重定向回首页。 |
+| `GET` | `/text-scale?scale=100\|125\|150\|200` | 切换当前浏览器的主看板字号比例，并重定向回首页。 |
 | `GET` | `/status.txt` | 纯文本状态摘要，适合旧 Kindle 浏览器、终端和监控脚本。 |
 | `GET` | `/presets.txt` | 纯文本内置状态包列表。 |
 
@@ -48,9 +48,11 @@ curl 'http://localhost:8080/text-scale?scale=150'
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
-| `GET` | `/api/vibe` | 读取当前 Vibe Coding 状态。 |
-| `POST` | `/api/vibe` | 更新当前 Vibe Coding 状态。 |
-| `GET` | `/api/health` | 读取服务健康状态、Vibe 心跳状态和 Codex 数据状态。 |
+| `GET` | `/api/status` | 读取当前可选状态看板内容。 |
+| `POST` | `/api/status` | 更新当前可选状态看板内容。 |
+| `GET` | `/api/vibe` | `/api/status` 的兼容读别名。 |
+| `POST` | `/api/vibe` | `/api/status` 的兼容写别名。 |
+| `GET` | `/api/health` | 读取服务健康状态、状态心跳和 Codex 数据状态。 |
 | `GET` | `/api/presets` | 读取内置状态包模板摘要和原始 payload。 |
 | `GET` | `/api/usage` | 读取 Codex 用量数据。 |
 | `GET` | `/api/config` | 读取当前配置；如果配置了写入 token，会脱敏显示。 |
@@ -58,8 +60,10 @@ curl 'http://localhost:8080/text-scale?scale=150'
 ## 读取状态
 
 ```bash
-curl http://localhost:8080/api/vibe
+curl http://localhost:8080/api/status
 ```
+
+旧脚本仍可访问 `/api/vibe`，服务端会返回同一份状态。
 
 响应是当前状态对象，常用字段包括：
 
@@ -79,7 +83,7 @@ curl http://localhost:8080/api/vibe
 ## 更新状态
 
 ```bash
-curl -X POST http://localhost:8080/api/vibe \
+curl -X POST http://localhost:8080/api/status \
   -H 'Content-Type: application/json' \
   -d '{
     "state": "编码中",
@@ -91,7 +95,7 @@ curl -X POST http://localhost:8080/api/vibe \
   }'
 ```
 
-`POST /api/vibe` 是局部更新：只修改请求体中出现的字段。几个特殊字段：
+`POST /api/status` 是局部更新：只修改请求体中出现的字段。几个特殊字段：
 
 | 字段 | 行为 |
 | --- | --- |
@@ -103,7 +107,7 @@ curl -X POST http://localhost:8080/api/vibe \
 
 ## 写入鉴权
 
-默认情况下，`POST /api/vibe` 只适合可信局域网使用。如果在 `config.json` 中设置了：
+默认情况下，`POST /api/status` 只适合可信局域网使用。如果在 `config.json` 中设置了：
 
 ```json
 {
@@ -116,7 +120,7 @@ curl -X POST http://localhost:8080/api/vibe \
 写入时需要提供 token：
 
 ```bash
-curl -X POST http://localhost:8080/api/vibe \
+curl -X POST http://localhost:8080/api/status \
   -H 'Content-Type: application/json' \
   -H 'X-InkDash-Token: your-token' \
   -d '{"heartbeat": true}'
@@ -125,7 +129,7 @@ curl -X POST http://localhost:8080/api/vibe \
 也可以使用查询参数：
 
 ```bash
-curl -X POST 'http://localhost:8080/api/vibe?token=your-token' \
+curl -X POST 'http://localhost:8080/api/status?token=your-token' \
   -H 'Content-Type: application/json' \
   -d '{"heartbeat": true}'
 ```

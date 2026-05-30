@@ -369,6 +369,16 @@ class VibeStatusTests(unittest.TestCase):
         status = app.default_vibe_status()
         self.assertIn("/api/status", status.get("next_action", ""))
 
+    def test_display_status_board_prefers_new_key_with_legacy_fallback(self):
+        self.assertTrue(app.display_status_board_enabled({"show_vibe_board": True}))
+        self.assertFalse(app.display_status_board_enabled({"show_status_board": False, "show_vibe_board": True}))
+
+    def test_settings_page_uses_status_board_field_name(self):
+        html = app.generate_settings_html()
+        self.assertIn('name="show_status_board"', html)
+        self.assertIn("显示状态看板", html)
+        self.assertNotIn('name="show_vibe_board"', html)
+
 
 if __name__ == "__main__":
     unittest.main()

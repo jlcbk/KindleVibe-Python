@@ -32,7 +32,7 @@ make ci
 
 - 确认 `config.json` 中的 `server.host` 和 `server.port` 符合局域网访问需求。
 - 如果暴露给多设备写入，设置 `security.api_token`。
-- 确认 `vibe_status.json`、`logs/` 和真实 token 没有提交到 Git。
+- 确认 `inkdash_status.json`、`vibe_status.json`、`logs/` 和真实 token 没有提交到 Git。
 - 确认 Kindle 可以访问主页面 `/`。
 - 用终端确认纯文本兜底：
 

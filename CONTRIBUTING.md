@@ -45,7 +45,7 @@ make ci
 等价检查包括：
 
 ```bash
-python3 -m py_compile app.py vibe_update.py
+python3 -m py_compile app.py status_model.py vibe_update.py
 python3 -m unittest discover -s tests
 ```
 
@@ -62,6 +62,7 @@ python3 -m unittest discover -s tests
 
 以下内容属于本地运行状态，不应提交到仓库：
 
+- `inkdash_status.json`
 - `vibe_status.json`
 - `logs/`
 - `__pycache__/`
