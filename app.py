@@ -253,6 +253,17 @@ def status_stale_after_seconds() -> int:
         return 900
 
 
+def codex_session_file_limit(value: Any = None) -> int:
+    """Return a safe limit for recent Codex session files to scan."""
+    if value is None:
+        value = config.get("codex", {}).get("session_file_limit", 10)
+    try:
+        limit = int(value)
+    except (TypeError, ValueError):
+        limit = 10
+    return max(1, min(100, limit))
+
+
 def vibe_stale_after_seconds() -> int:
     """Compatibility wrapper for the old status freshness helper name."""
     return status_stale_after_seconds()
@@ -447,6 +458,7 @@ def finalize_token_window(window: Dict[str, Any]):
 def compute_local_token_usage(
     codex_home: Optional[Path] = None,
     now: Optional[datetime] = None,
+    session_file_limit: Optional[int] = None,
 ) -> Dict[str, Any]:
     result = default_local_token_usage()
     now_utc = now or datetime.now(timezone.utc)
@@ -465,40 +477,44 @@ def compute_local_token_usage(
         "7d": now_utc - timedelta(days=7),
     }
 
+    session_files = []
     for session_dir in session_dirs:
         if not session_dir.exists():
             continue
-        for session_file in session_dir.rglob("*.jsonl"):
-            try:
-                if datetime.fromtimestamp(session_file.stat().st_mtime, tz=timezone.utc) < cutoffs["7d"]:
-                    continue
-                with open(session_file, "r", encoding="utf-8") as f:
-                    for line in f:
-                        try:
-                            event = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-                        if event.get("type") != "event_msg":
-                            continue
-                        payload = event.get("payload", {})
-                        if payload.get("type") != "token_count":
-                            continue
-                        event_time = parse_codex_timestamp(event.get("timestamp"))
-                        if not event_time:
-                            continue
-                        last_usage = payload.get("info", {}).get("last_token_usage", {})
-                        if not isinstance(last_usage, dict):
-                            continue
-                        for key, cutoff in cutoffs.items():
-                            if event_time >= cutoff:
-                                add_token_usage(
-                                    result["windows"][key],
-                                    last_usage,
-                                    event_time,
-                                    str(session_file),
-                                )
-            except Exception as e:
-                logger.warning(f"Error reading token usage from {session_file}: {e}")
+        session_files.extend(session_dir.rglob("*.jsonl"))
+
+    session_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+    for session_file in session_files[:codex_session_file_limit(session_file_limit)]:
+        try:
+            if datetime.fromtimestamp(session_file.stat().st_mtime, tz=timezone.utc) < cutoffs["7d"]:
+                continue
+            with open(session_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if event.get("type") != "event_msg":
+                        continue
+                    payload = event.get("payload", {})
+                    if payload.get("type") != "token_count":
+                        continue
+                    event_time = parse_codex_timestamp(event.get("timestamp"))
+                    if not event_time:
+                        continue
+                    last_usage = payload.get("info", {}).get("last_token_usage", {})
+                    if not isinstance(last_usage, dict):
+                        continue
+                    for key, cutoff in cutoffs.items():
+                        if event_time >= cutoff:
+                            add_token_usage(
+                                result["windows"][key],
+                                last_usage,
+                                event_time,
+                                str(session_file),
+                            )
+        except Exception as e:
+            logger.warning(f"Error reading token usage from {session_file}: {e}")
 
     for window in result["windows"].values():
         finalize_token_window(window)
@@ -733,9 +749,7 @@ def fetch_codex_status_session() -> CodexUsage:
     session_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
     
     # Limit the number of files to check
-    limit = config.get("codex", {}).get("session_file_limit", 10)
-    
-    for session_file in session_files[:limit]:
+    for session_file in session_files[:codex_session_file_limit()]:
         try:
             with open(session_file, 'r') as f:
                 for line in f:

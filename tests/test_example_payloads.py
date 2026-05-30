@@ -50,3 +50,14 @@ class ExamplePayloadTests(unittest.TestCase):
         self.assertNotIn("Vibe Coding", combined_text)
         self.assertNotIn("vibe coding", combined_text)
         self.assertIn("/api/status", combined_text)
+
+    def test_background_runner_examples_use_current_project_name(self):
+        examples_dir = ROOT / "examples"
+
+        self.assertFalse((examples_dir / "systemd" / "kindlevibe.service").exists())
+        self.assertFalse((examples_dir / "launchd" / "com.kindlevibe.plist").exists())
+        for path in sorted(examples_dir.rglob("*")):
+            if path.is_file():
+                content = path.read_text(encoding="utf-8")
+                self.assertNotIn("KindleVibe-Python", content)
+                self.assertNotIn("kindlevibe", content)

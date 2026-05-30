@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -399,6 +400,51 @@ class VibeStatusTests(unittest.TestCase):
         self.assertEqual(window_7d["cache_hit_percent"], 30.0)
         self.assertEqual(window_7d["event_count"], 2)
         self.assertEqual(window_7d["session_count"], 2)
+
+    def test_compute_local_token_usage_respects_session_file_limit(self):
+        codex_home = Path(self.tmpdir.name) / ".codex"
+        session_dir = codex_home / "sessions"
+        session_dir.mkdir(parents=True)
+        now = datetime(2026, 5, 29, 10, 0, 0, tzinfo=timezone.utc)
+
+        def write_session(path: Path, event_time: datetime, total_tokens: int):
+            payload = {
+                "timestamp": event_time.isoformat().replace("+00:00", "Z"),
+                "type": "event_msg",
+                "payload": {
+                    "type": "token_count",
+                    "info": {
+                        "last_token_usage": {
+                            "input_tokens": total_tokens,
+                            "cached_input_tokens": 0,
+                            "output_tokens": 0,
+                            "reasoning_output_tokens": 0,
+                            "total_tokens": total_tokens,
+                        },
+                    },
+                },
+            }
+            path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+            timestamp = event_time.timestamp()
+            os.utime(path, (timestamp, timestamp))
+
+        write_session(session_dir / "newest.jsonl", now - timedelta(hours=1), 10)
+        write_session(session_dir / "second.jsonl", now - timedelta(hours=2), 20)
+        write_session(session_dir / "third.jsonl", now - timedelta(hours=3), 100)
+
+        usage = app.compute_local_token_usage(
+            codex_home=codex_home,
+            now=now,
+            session_file_limit=2,
+        )
+
+        self.assertEqual(usage["windows"]["24h"]["total_tokens"], 30)
+        self.assertEqual(usage["windows"]["24h"]["session_count"], 2)
+
+    def test_codex_session_file_limit_clamps_invalid_values(self):
+        self.assertEqual(app.codex_session_file_limit("bad-value"), 10)
+        self.assertEqual(app.codex_session_file_limit(0), 1)
+        self.assertEqual(app.codex_session_file_limit(999), 100)
 
     def test_main_html_has_grid_supports_fallback(self):
         html = app.generate_main_html(
