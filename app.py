@@ -294,6 +294,14 @@ def safe_content_length(value: Any, maximum: int = MAX_POST_BODY_BYTES) -> int:
     return max(0, min(maximum, length))
 
 
+def decode_request_body(raw_body: bytes) -> str:
+    """Decode a request body as UTF-8, raising ValueError on invalid bytes."""
+    try:
+        return raw_body.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError("请求体不是有效 UTF-8") from e
+
+
 def display_status_board_enabled(display: Dict[str, Any]) -> bool:
     """Return the status-board display flag, accepting the legacy key."""
     if "show_status_board" in display:
@@ -2463,11 +2471,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         path = parsed_path.path
 
         if path == "/settings":
-            content_length = safe_content_length(self.headers.get("Content-Length"))
-            post_data = self.rfile.read(content_length).decode("utf-8")
-            params = parse_qs(post_data)
-            
             try:
+                content_length = safe_content_length(self.headers.get("Content-Length"))
+                post_data = decode_request_body(self.rfile.read(content_length))
+                params = parse_qs(post_data)
+
                 # Update server settings
                 if "port" in params:
                     config["server"]["port"] = int(params["port"][0])
@@ -2529,7 +2537,12 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         elif path in ("/api/vibe", "/api/status"):
             content_length = safe_content_length(self.headers.get("Content-Length"))
-            raw_body = self.rfile.read(content_length).decode("utf-8")
+            try:
+                raw_body = decode_request_body(self.rfile.read(content_length))
+            except ValueError as e:
+                self.send_json(400, {"error": f"请求格式错误：{str(e)}"})
+                return
+
             if not self.is_api_write_authorized(parsed_path):
                 self.send_json(401, {"error": "未授权：缺少或错误的 API token"})
                 return

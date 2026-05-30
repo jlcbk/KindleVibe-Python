@@ -598,6 +598,11 @@ class VibeStatusTests(unittest.TestCase):
         self.assertEqual(app.safe_content_length("42"), 42)
         self.assertEqual(app.safe_content_length(str(app.MAX_POST_BODY_BYTES + 1)), app.MAX_POST_BODY_BYTES)
 
+    def test_decode_request_body_rejects_invalid_utf8(self):
+        self.assertEqual(app.decode_request_body("状态".encode("utf-8")), "状态")
+        with self.assertRaises(ValueError):
+            app.decode_request_body(b"\xff\xfe")
+
     def test_fetch_codex_usage_honors_string_false_enabled_flag(self):
         original_config = app.config
         original_attach = app.attach_local_token_usage
