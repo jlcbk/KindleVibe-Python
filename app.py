@@ -228,6 +228,21 @@ def page_refresh_seconds(value: Any = None) -> int:
     return clamp_int_range(seconds, 300, 30, 3600)
 
 
+def server_port_number(value: Any = None) -> int:
+    """Return a safe server port number."""
+    if value is None:
+        value = config.get("server", {}).get("port", 8080)
+    return clamp_int_range(value, 8080, 1, 65535)
+
+
+def server_host_value(value: Any = None) -> str:
+    """Return a non-empty server host string."""
+    if value is None:
+        value = config.get("server", {}).get("host", "0.0.0.0")
+    host = str(value or "").strip()
+    return host if host else "0.0.0.0"
+
+
 def current_text_scale() -> int:
     """Return the configured dashboard text scale percentage."""
     return normalize_text_scale(
@@ -1871,8 +1886,8 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
         msg_html = f'<div class="{msg_class}">{escape(message)}</div>'
     
     # Server settings
-    server_port = config.get("server", {}).get("port", 8080)
-    server_host = config.get("server", {}).get("host", "0.0.0.0")
+    server_port = server_port_number()
+    server_host = server_host_value()
     
     # Refresh settings
     refresh_interval = refresh_interval_seconds()
@@ -2577,8 +2592,8 @@ def main():
     if args.host:
         config.setdefault("server", {})["host"] = args.host
     
-    server_port = config.get("server", {}).get("port", 8080)
-    server_host = config.get("server", {}).get("host", "0.0.0.0")
+    server_port = server_port_number()
+    server_host = server_host_value()
     
     # Get local IP
     local_ip = get_local_ip()

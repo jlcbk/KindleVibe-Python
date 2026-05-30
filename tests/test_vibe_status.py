@@ -217,6 +217,13 @@ class VibeStatusTests(unittest.TestCase):
         self.assertEqual(app.page_refresh_seconds(5000), 30)
         self.assertEqual(app.page_refresh_seconds(99999999), 3600)
 
+    def test_server_helpers_clamp_invalid_config_values(self):
+        self.assertEqual(app.server_port_number("bad-value"), 8080)
+        self.assertEqual(app.server_port_number(0), 1)
+        self.assertEqual(app.server_port_number(999999), 65535)
+        self.assertEqual(app.server_host_value(""), "0.0.0.0")
+        self.assertEqual(app.server_host_value(" 127.0.0.1 "), "127.0.0.1")
+
     def test_pages_tolerate_invalid_refresh_config_values(self):
         original_config = app.config
         try:
@@ -234,6 +241,17 @@ class VibeStatusTests(unittest.TestCase):
         self.assertIn('http-equiv="refresh" content="300"', main_html)
         self.assertIn('name="refresh_interval" value="300"', settings_html)
         self.assertIn('name="refresh_page" value="300"', settings_html)
+
+    def test_settings_html_tolerates_invalid_server_config_values(self):
+        original_config = app.config
+        try:
+            app.config = {"server": {"port": "bad-value", "host": ""}}
+            html = app.generate_settings_html()
+        finally:
+            app.config = original_config
+
+        self.assertIn('name="port" value="8080"', html)
+        self.assertIn('name="host" value="0.0.0.0"', html)
 
     def test_settings_html_exposes_stale_threshold(self):
         html = app.generate_settings_html()
