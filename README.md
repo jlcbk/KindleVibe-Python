@@ -1,21 +1,21 @@
 # InkDash（墨板）
 
-InkDash（墨板）是一个面向电子墨水屏浏览器（Kindle 等）的常亮状态面板，用来显示 vibe coding 过程中的关键信息：当前目标、项目/分支、正在处理的任务、下一步、阻塞项、最近事件，以及 Codex 用量。
+InkDash（墨板）是一个面向电子墨水屏浏览器（Kindle 等）的常亮状态面板，主要用来显示 **Codex 用量**——包括 5 小时/周额度比例、Token 消耗、缓存命中率——以及可选的 **Vibe Coding 状态看板**。
 
 这个版本只依赖 Python 标准库，适合在本机或局域网内运行，然后用 Kindle 打开页面作为低功耗状态屏。
 
 ## 功能
 
 - **Kindle 友好**：黑白高对比、大字号、低动态效果，适合电子墨水屏。
-- **Vibe Coding 看板**：展示当前目标、任务、下一步、协作者、阻塞项和最近事件。
-- **状态写入 API**：任意 agent、脚本或自动化流程都可以通过 `POST /api/vibe` 更新看板。
-- **纯文本兜底页**：`/status.txt` 提供不依赖 CSS/JS 的状态摘要，适合旧 Kindle 浏览器、终端和监控脚本。
-- **心跳/过期提示**：当状态长时间没有更新时，页面和纯文本端点会提示“可能过期”。
 - **Codex 用量监控**：优先通过 Codex CLI RPC 读取账号额度百分比，失败后回退到本地会话文件；同时展示本机近 24 小时和近 7 天 Token 消耗、缓存命中率。
-- **多分辨率/横屏布局**：主看板支持自动、竖屏、横屏三种布局模式，以及 80%-200% 字号缩放；网页端快捷切换会保存为当前浏览器偏好，Kindle、旧手机、平板和电脑可以互不影响。
-- **自动刷新**：主看板使用 HTML `meta refresh` 按配置周期自动刷新，不依赖 JavaScript。
+- **Vibe Coding 看板（可选）**：展示当前目标、任务、下一步、协作者、阻塞项和最近事件。看板默认关闭，可在设置页中开启。
+- **状态写入 API**：任意 agent、脚本或自动化流程都可以通过 `POST /api/vibe` 或 `POST /api/status` 更新看板。
+- **纯文本兜底页**：`/status.txt` 提供不依赖 CSS/JS 的状态摘要，适合旧 Kindle 浏览器、终端和监控脚本。
+- **心跳/过期提示**：当状态长时间没有更新时，页面和纯文本端点会提示"可能过期"。
+- **多分辨率/横屏布局**：支持自动、竖屏、横屏三种布局模式，以及 80%-200% 字号缩放；网页端快捷切换会保存为当前浏览器偏好，Kindle、旧手机、平板和电脑可以互不影响。
+- **自动刷新**：使用 HTML `meta refresh` 按配置周期自动刷新，不依赖 JavaScript。
 - **禁用缓存**：主页面、纯文本页和 API 默认发送 no-cache 响应头，减少 Kindle 显示旧状态的概率。
-- **浏览器设置页**：可以在 `/settings` 中调整端口、刷新间隔、Codex 来源和显示内容。
+- **浏览器设置页**：可以在 `/settings` 中调整端口、刷新间隔、Codex 来源和显示项开关。
 
 ## 环境要求
 
@@ -272,10 +272,10 @@ make clear-events EVENT="开始新一轮状态记录。"
     "api_token": ""
   },
   "display": {
-    "show_vibe_board": true,
+    "show_vibe_board": false,
     "show_credits": false,
     "show_plan_type": true,
-    "show_data_source": true,
+    "show_data_source": false,
     "show_last_updated": true,
     "layout_mode": "auto",
     "text_scale_percent": 125
@@ -290,9 +290,11 @@ make clear-events EVENT="开始新一轮状态记录。"
 - `GET /presets.txt`：纯文本内置状态包列表。
 - `GET /settings`：设置页。
 - `GET /layout?mode=auto|portrait|landscape`：切换当前浏览器的主看板布局模式，并返回首页。
-- `GET /text-scale?scale=100|125|150`：切换当前浏览器的字号比例，并返回首页。
+- `GET /text-scale?scale=100|125|150|200`：切换当前浏览器的字号比例，并返回首页。
 - `GET /api/vibe`：读取 vibe coding 状态。
 - `POST /api/vibe`：更新 vibe coding 状态。
+- `GET /api/status`：读取状态（`/api/vibe` 别名）。
+- `POST /api/status`：更新状态（`/api/vibe` 别名）。
 - `GET /api/health`：健康检查，返回服务状态、vibe 状态是否过期、Codex 数据是否报错。
 - `GET /api/presets`：读取内置状态包模板摘要和原始 payload。
 - `GET /api/usage`：读取 Codex 用量。

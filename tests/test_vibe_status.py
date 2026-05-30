@@ -338,6 +338,37 @@ class VibeStatusTests(unittest.TestCase):
         self.assertIn("&lt;script&gt;", html)
         self.assertNotIn("<script>alert", html)
 
+    def test_load_vibe_status_falls_back_to_legacy_file(self):
+        legacy = Path(self.tmpdir.name) / "vibe_status.json"
+        new_file = Path(self.tmpdir.name) / "inkdash_status.json"
+        self.assertFalse(legacy.exists())
+        self.assertFalse(new_file.exists())
+
+        legacy.write_text(json.dumps({"state": "from-legacy"}), encoding="utf-8")
+        self.assertTrue(legacy.exists())
+        self.assertFalse(new_file.exists())
+
+        original_status = app.STATUS_FILE
+        original_legacy = app.STATUS_FILE_LEGACY
+        try:
+            app.STATUS_FILE = new_file
+            app.STATUS_FILE_LEGACY = legacy
+
+            status = app.load_vibe_status()
+        finally:
+            app.STATUS_FILE = original_status
+            app.STATUS_FILE_LEGACY = original_legacy
+
+        self.assertEqual(status.get("state"), "from-legacy")
+
+    def test_settings_page_max_width_matches_main_page(self):
+        html = app.generate_settings_html()
+        self.assertIn("max-width: 1040px", html)
+
+    def test_default_vibe_status_mentions_api_status(self):
+        status = app.default_vibe_status()
+        self.assertIn("/api/status", status.get("next_action", ""))
+
 
 if __name__ == "__main__":
     unittest.main()

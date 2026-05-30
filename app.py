@@ -64,7 +64,8 @@ logger = setup_logging()
 # ============================================================================
 
 CONFIG_FILE = Path(__file__).parent / "config.json"
-STATUS_FILE = Path(__file__).parent / "vibe_status.json"
+STATUS_FILE = Path(__file__).parent / "inkdash_status.json"
+STATUS_FILE_LEGACY = Path(__file__).parent / "vibe_status.json"
 PRESET_DIR = Path(__file__).parent / "examples" / "payloads"
 PRESET_NAMES = ("coding", "review", "blocked", "done")
 MAX_EVENT_ITEMS = 8
@@ -251,7 +252,7 @@ def default_vibe_status() -> Dict[str, Any]:
         "branch": "未指定分支",
         "objective": "等待 agent 或脚本写入当前目标。",
         "current_task": "暂无正在展示的任务。",
-        "next_action": "通过 POST /api/vibe 写入最新状态。",
+        "next_action": "通过 POST /api/vibe 或 /api/status 写入最新状态。",
         "blockers": [],
         "participants": [],
         "updated_at": timestamp,
@@ -331,10 +332,11 @@ def normalize_vibe_status(raw: Any) -> Dict[str, Any]:
 
 
 def load_vibe_status() -> Dict[str, Any]:
-    """Load the persisted vibe status from disk."""
+    """Load the persisted vibe status from disk (new name first, legacy fallback)."""
+    status_file = STATUS_FILE if STATUS_FILE.exists() else STATUS_FILE_LEGACY
     try:
-        if STATUS_FILE.exists():
-            with open(STATUS_FILE, "r", encoding="utf-8") as f:
+        if status_file.exists():
+            with open(status_file, "r", encoding="utf-8") as f:
                 return normalize_vibe_status(json.load(f))
     except Exception as e:
         logger.warning(f"Failed to load vibe status: {e}")
@@ -1953,7 +1955,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
             background: #ffffff;
             color: #000000;
             padding: 20px;
-            max-width: 800px;
+            max-width: 1040px;
             margin: 0 auto;
         }}
         
@@ -1966,7 +1968,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
         }}
         
         .header h1 {{
-            font-size: 2em;
+            font-size: {scaled(32)};
             font-weight: bold;
         }}
         
@@ -1978,7 +1980,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
             color: #ffffff;
             border: none;
             padding: 10px 15px;
-            font-size: 1em;
+            font-size: {scaled(16)};
             cursor: pointer;
             border-radius: 4px;
             text-decoration: none;
@@ -1997,7 +1999,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
         }}
         
         .settings-section h2 {{
-            font-size: 1.4em;
+            font-size: {scaled(22)};
             margin-bottom: 15px;
             padding-bottom: 10px;
             border-bottom: 1px solid #ccc;
@@ -2011,7 +2013,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
             display: block;
             font-weight: bold;
             margin-bottom: 5px;
-            font-size: 1.1em;
+            font-size: {scaled(18)};
         }}
         
         .form-group input[type="number"],
@@ -2019,7 +2021,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
         .form-group select {{
             width: 100%;
             padding: 10px;
-            font-size: 1em;
+            font-size: {scaled(18)};
             border: 1px solid #ddd;
             border-radius: 4px;
             background: #ffffff;
@@ -2031,11 +2033,12 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
             gap: 10px;
             font-weight: normal;
             cursor: pointer;
+            font-size: {scaled(18)};
         }}
         
         .form-group input[type="checkbox"] {{
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             cursor: pointer;
         }}
         
@@ -2049,7 +2052,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
             color: #ffffff;
             border: none;
             padding: 12px 30px;
-            font-size: 1.1em;
+            font-size: {scaled(18)};
             cursor: pointer;
             border-radius: 4px;
             margin: 0 10px;
@@ -2088,7 +2091,7 @@ def generate_settings_html(message: str = "", message_type: str = "") -> str:
         }}
         
         .help-text {{
-            font-size: 0.9em;
+            font-size: {scaled(14)};
             color: #666;
             margin-top: 5px;
         }}
@@ -2403,7 +2406,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(health, indent=2, ensure_ascii=False).encode("utf-8"))
 
-        elif path == "/api/vibe":
+        elif path in ("/api/vibe", "/api/status"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_no_cache_headers()
@@ -2492,7 +2495,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(html.encode("utf-8"))
 
-        elif path == "/api/vibe":
+        elif path in ("/api/vibe", "/api/status"):
             content_length = int(self.headers.get("Content-Length", 0))
             raw_body = self.rfile.read(content_length).decode("utf-8")
             if not self.is_api_write_authorized(parsed_path):
