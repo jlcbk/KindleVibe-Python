@@ -321,6 +321,28 @@ class VibeStatusTests(unittest.TestCase):
         self.assertEqual(app.DEFAULT_CONFIG["server"]["port"], 8080)
         self.assertEqual(app.DEFAULT_CONFIG["display"]["layout_mode"], "auto")
 
+    def test_merge_configs_ignores_invalid_object_sections(self):
+        merged = app.merge_configs(app.DEFAULT_CONFIG, {
+            "server": "bad-server",
+            "refresh": False,
+            "display": "bad-display",
+        })
+
+        self.assertIsInstance(merged["server"], dict)
+        self.assertIsInstance(merged["refresh"], dict)
+        self.assertIsInstance(merged["display"], dict)
+
+        original_config = app.config
+        try:
+            app.config = merged
+            main_html = app.generate_main_html(app.CodexUsage(), app.default_vibe_status())
+            settings_html = app.generate_settings_html()
+        finally:
+            app.config = original_config
+
+        self.assertIn("InkDash", main_html)
+        self.assertIn("设置", settings_html)
+
     def test_load_config_default_result_does_not_share_nested_defaults(self):
         original_config_file = app.CONFIG_FILE
         try:

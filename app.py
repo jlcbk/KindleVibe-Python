@@ -168,6 +168,8 @@ def merge_configs(default: Dict, override: Dict) -> Dict:
     for key, value in override.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = merge_configs(result[key], value)
+        elif key in result and isinstance(result[key], dict) and not isinstance(value, dict):
+            logger.warning(f"Ignoring invalid config section {key}: expected object")
         else:
             result[key] = value
     return result
