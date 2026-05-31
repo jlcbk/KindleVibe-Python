@@ -578,6 +578,24 @@ def finalize_token_window(window: Dict[str, Any]):
         window["cache_hit_percent"] = round(cached_tokens * 100 / input_tokens, 1)
 
 
+def recent_session_files(session_dirs: list, limit: int) -> list:
+    """Return recent JSONL session files, ignoring files that disappear mid-scan."""
+    candidates = []
+    for session_dir in session_dirs:
+        if not session_dir.exists():
+            continue
+        for session_file in session_dir.rglob("*.jsonl"):
+            try:
+                mtime = session_file.stat().st_mtime
+            except OSError as e:
+                logger.warning(f"Skipping unreadable session file {session_file}: {e}")
+                continue
+            candidates.append((mtime, session_file))
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return [session_file for _, session_file in candidates[:codex_session_file_limit(limit)]]
+
+
 def compute_local_token_usage(
     codex_home: Optional[Path] = None,
     now: Optional[datetime] = None,
@@ -600,14 +618,7 @@ def compute_local_token_usage(
         "7d": now_utc - timedelta(days=7),
     }
 
-    session_files = []
-    for session_dir in session_dirs:
-        if not session_dir.exists():
-            continue
-        session_files.extend(session_dir.rglob("*.jsonl"))
-
-    session_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
-    for session_file in session_files[:codex_session_file_limit(session_file_limit)]:
+    for session_file in recent_session_files(session_dirs, codex_session_file_limit(session_file_limit)):
         try:
             if datetime.fromtimestamp(session_file.stat().st_mtime, tz=timezone.utc) < cutoffs["7d"]:
                 continue
@@ -855,11 +866,7 @@ def fetch_codex_status_session() -> CodexUsage:
         codex_home / "archived_sessions"
     ]
     
-    session_files = []
-    for session_dir in session_dirs:
-        if session_dir.exists():
-            for jsonl_file in session_dir.rglob("*.jsonl"):
-                session_files.append(jsonl_file)
+    session_files = recent_session_files(session_dirs, codex_session_file_limit())
     
     if not session_files:
         usage.error = "没有找到 Codex 会话文件"
@@ -868,11 +875,7 @@ def fetch_codex_status_session() -> CodexUsage:
     
     logger.debug(f"Found {len(session_files)} session files")
     
-    # Sort by modification time (newest first)
-    session_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
-    
-    # Limit the number of files to check
-    for session_file in session_files[:codex_session_file_limit()]:
+    for session_file in session_files:
         try:
             with open(session_file, 'r') as f:
                 for line in f:
