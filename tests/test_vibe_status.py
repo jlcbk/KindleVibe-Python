@@ -496,6 +496,21 @@ class VibeStatusTests(unittest.TestCase):
         self.assertEqual(usage["windows"]["24h"]["total_tokens"], 30)
         self.assertEqual(usage["windows"]["24h"]["session_count"], 2)
 
+    def test_recent_session_files_skips_broken_symlink(self):
+        session_dir = Path(self.tmpdir.name) / "sessions"
+        session_dir.mkdir()
+        valid_file = session_dir / "valid.jsonl"
+        valid_file.write_text("{}", encoding="utf-8")
+        broken_file = session_dir / "broken.jsonl"
+        try:
+            os.symlink(session_dir / "missing.jsonl", broken_file)
+        except OSError as e:
+            self.skipTest(f"symlink unavailable: {e}")
+
+        files = app.recent_session_files([session_dir], 10)
+
+        self.assertEqual(files, [valid_file])
+
     def test_codex_session_file_limit_clamps_invalid_values(self):
         self.assertEqual(app.codex_session_file_limit("bad-value"), 10)
         self.assertEqual(app.codex_session_file_limit(0), 1)
